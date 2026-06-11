@@ -790,6 +790,177 @@ function useFacility(f){
   updateHud(); updateNodeStates(); renderPanel();
 }
 
+// ---------- 武将似顔絵（浮世絵風SVGを名前から決定論生成） ----------
+function strHash(s){
+  let h=5381;
+  for(let i=0;i<s.length;i++){ h=((h<<5)+h+s.charCodeAt(i))|0; }
+  return Math.abs(h);
+}
+function portraitSVG(lord, castle, size){
+  size = size||96;
+  const o = (typeof PORTRAIT_OVR!=='undefined' && PORTRAIT_OVR[lord.n]) || {};
+  const h = strHash(lord.n);
+  const pick = (arr,salt)=>arr[Math.floor(h/Math.pow(3,salt))%arr.length];
+  const unit = castle ? unitOf(castle,lord) : 'yari';
+  const tier = lord.t||1;
+  // スタイル決定
+  let style = o.style || '';
+  if(!style && o.head==='monk') style='monk';
+  if(!style && unit==='shinobi') style='shinobi';
+  if(!style) style='busho';
+  const elder = !!o.elder;
+  const skin = style==='court' ? '#efe7df' : pick(['#e9c9a3','#dcb288','#c89a6f'],1);
+  const skinD = '#00000022';
+  const armors = [['#8c3232','#5e1f1f'],['#2e4a6b','#1d3145'],['#3c5a3a','#27402a'],['#5a3e6b','#3c2849'],['#6b5a2e','#473c1c'],['#33333d','#1f1f29']];
+  let armor = pick(armors,2);
+  if(o.armorC) armor=[o.armorC, '#00000055'];
+  const hairC = elder ? '#9a9a98' : '#26221f';
+  const gold = '#d8b25c';
+  const metal = pick(['#2c2c34','#3a322a','#33282e'],3);
+  const beard = o.beard!==undefined ? o.beard : (style==='female'||style==='femaleW'||style==='page'||style==='court') ? 'none' : pick(['none','thin','goatee','full','none'],4);
+  const beardC = (beard==='fullGray'||beard==='goateeGray'||elder) ? '#b9b9b6' : '#2a241f';
+  const fierce = (lord.b||50)>=78;
+  const eyeStyle = o.eyes || pick(['narrow','almond','narrow'],5);
+  const P=[];
+  P.push('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" width="'+size+'" height="'+(size*1.2)+'" class="portrait">');
+  // 背景・額装
+  P.push('<rect x="2" y="2" width="96" height="116" rx="7" fill="#1c2336"/>');
+  if(tier===5){
+    for(let i=0;i<12;i++){
+      const a=i*30*Math.PI/180;
+      P.push('<line x1="50" y1="52" x2="'+(50+Math.cos(a)*70)+'" y2="'+(52+Math.sin(a)*70)+'" stroke="'+gold+'" stroke-width="3" opacity="0.10"/>');
+    }
+  }
+  if(o.extra==='lightning') P.push('<path d="M16,12 L24,26 L18,26 L27,42" stroke="'+gold+'" stroke-width="2.5" fill="none" opacity="0.8"/>');
+  // 胴体（甲冑 or 着物）
+  if(style==='female'||style==='femaleW'){
+    // 後ろ髪
+    P.push('<path d="M29,42 Q26,18 50,16 Q74,18 71,42 L74,96 Q62,104 50,104 Q38,104 26,96 Z" fill="'+hairC+'"/>');
+    // 着物の襟
+    P.push('<path d="M16,120 Q18,92 38,84 L50,96 L62,84 Q82,92 84,120 Z" fill="'+(o.style==='femaleW'?'#5a3e6b':'#8c3232')+'"/>');
+    P.push('<path d="M38,84 L50,96 L62,84 L58,82 L50,90 L42,82 Z" fill="#e8e2d0"/>');
+  }else if(style==='court'||style==='page'||style==='monk'){
+    P.push('<path d="M14,120 L14,102 Q16,88 34,84 L46,80 H54 L66,84 Q84,88 86,102 L86,120 Z" fill="'+(style==='monk'?'#4a4438':'#3a3a55')+'"/>');
+    P.push('<path d="M42,82 L50,94 L58,82" stroke="#e8e2d0" stroke-width="3" fill="none"/>');
+  }else{
+    // 甲冑
+    P.push('<path d="M14,120 L14,102 Q16,88 34,84 L44,80 H56 L66,84 Q84,88 86,102 L86,120 Z" fill="'+armor[0]+'"/>');
+    P.push('<ellipse cx="22" cy="96" rx="13" ry="11" fill="'+armor[0]+'" stroke="'+armor[1]+'" stroke-width="2"/>');
+    P.push('<ellipse cx="78" cy="96" rx="13" ry="11" fill="'+armor[0]+'" stroke="'+armor[1]+'" stroke-width="2"/>');
+    P.push('<path d="M30,98 H70 M28,106 H72 M27,114 H73" stroke="'+armor[1]+'" stroke-width="2.5"/>');
+    P.push('<path d="M50,86 V120" stroke="'+gold+'" stroke-width="1.6" opacity="0.5"/>');
+  }
+  // 首・顔
+  P.push('<path d="M44,68 H56 V84 H44 Z" fill="'+skin+'"/><path d="M44,68 H56 V73 Q50,76 44,73 Z" fill="'+skinD+'"/>');
+  const faceRx = o.face==='slim' ? 15 : pick([16,17,18],6);
+  P.push('<ellipse cx="33" cy="58" rx="3" ry="4.5" fill="'+skin+'"/><ellipse cx="67" cy="58" rx="3" ry="4.5" fill="'+skin+'"/>');
+  P.push('<ellipse cx="50" cy="56" rx="'+faceRx+'" ry="19" fill="'+skin+'"/>');
+  if(elder) P.push('<path d="M38,64 q3,2 6,1 M62,64 q-3,2 -6,1 M42,44 h16" stroke="#00000033" stroke-width="1.2" fill="none"/>');
+  // 髭（口より先に描く）
+  if(beard==='full'||beard==='fullGray'){
+    P.push('<path d="M35,60 Q34,86 50,88 Q66,86 65,60 Q62,74 50,75 Q38,74 35,60 Z" fill="'+beardC+'"/>');
+  }else if(beard==='goatee'||beard==='goateeGray'){
+    P.push('<path d="M44,76 Q50,90 56,76 Q50,80 44,76 Z" fill="'+beardC+'"/>');
+  }
+  // 眉・目・鼻・口
+  if(style==='court'){
+    P.push('<ellipse cx="42" cy="44" rx="3.4" ry="1.8" fill="#3a3433"/><ellipse cx="58" cy="44" rx="3.4" ry="1.8" fill="#3a3433"/>');
+    P.push('<path d="M39,57 h7 M54,57 h7" stroke="#2a2422" stroke-width="1.6"/>');
+    P.push('<path d="M47,73 q3,2.4 6,0" stroke="#a33" stroke-width="2.6" fill="none"/>');
+  }else{
+    const browY = fierce? 'M35,53 L46,48 M65,53 L54,48' : (style==='female'? 'M37,50 q5,-2.5 9,0 M54,50 q5,-2.5 9,0' : 'M36,50 h10 M54,50 h10');
+    P.push('<path d="'+browY+'" stroke="'+(elder?'#b9b9b6':'#2a241f')+'" stroke-width="'+(style==='female'?1.4:2.6)+'" fill="none"/>');
+    if(eyeStyle==='narrow') P.push('<path d="M38,57 h8 M54,57 h8" stroke="#1c1714" stroke-width="2"/>');
+    else if(eyeStyle==='sharp') P.push('<path d="M38,58 l8,-2 M62,58 l-8,-2" stroke="#1c1714" stroke-width="2.2"/>');
+    else if(eyeStyle==='snake') P.push('<path d="M38,57 h8 M54,57 h8" stroke="#1c1714" stroke-width="1.6"/><circle cx="42" cy="57" r="1" fill="#1c1714"/><circle cx="58" cy="57" r="1" fill="#1c1714"/>');
+    else P.push('<ellipse cx="42" cy="57" rx="2.8" ry="2" fill="#1c1714"/><ellipse cx="58" cy="57" rx="2.8" ry="2" fill="#1c1714"/>');
+    P.push('<path d="M50,58 L48.4,66 q1.6,1.6 3.2,0" stroke="'+skinD.replace('22','44')+'" stroke-width="1.6" fill="none"/>');
+    const mouth = style==='female' ? '<path d="M46.5,74 q3.5,2.4 7,0" stroke="#a34" stroke-width="2" fill="none"/>'
+      : fierce ? '<path d="M43,76 q7,-3.6 14,0" stroke="#241d18" stroke-width="2.2" fill="none"/>'
+      : '<path d="M43.5,75 h13" stroke="#241d18" stroke-width="2.2"/>';
+    P.push(mouth);
+    if(beard==='thin') P.push('<path d="M43,70 q7,3 14,0" stroke="'+beardC+'" stroke-width="1.6" fill="none"/>');
+  }
+  if(o.scar) P.push('<path d="M58,46 L66,60" stroke="#8c3a32" stroke-width="2"/>');
+  if(o.eyepatch){
+    P.push('<ellipse cx="42" cy="57" rx="6" ry="5" fill="#181410"/><path d="M33,52 L64,44 M33,52 L62,66" stroke="#181410" stroke-width="1.6"/>');
+  }
+  // 頭部（兜・頭巾など）
+  const head = o.head || (style==='shinobi'?'shinobiHood': style==='monk'?'monk': style==='female'?'femaleHair': style==='femaleW'?'femaleBand': style==='court'?'eboshi': style==='page'?'pageHair':'kabuto');
+  if(head==='kabuto'){
+    const jingasa = tier<=2 && !o.crest && (h%10<3);
+    if(jingasa){
+      P.push('<path d="M20,46 L50,26 L80,46 Z" fill="#8a7440" stroke="#5e4d28" stroke-width="1.6"/>');
+      P.push('<circle cx="50" cy="38" r="3" fill="'+gold+'"/>');
+    }else{
+      P.push('<path d="M30,45 Q29,24 50,22 Q71,24 70,45 L66,42 H34 Z" fill="'+metal+'"/>');
+      P.push('<path d="M28,45 Q50,38 72,45 L70,49 Q50,42 30,49 Z" fill="'+metal+'" stroke="#00000044" stroke-width="1"/>');
+      P.push('<path d="M30,46 Q22,42 19,34 L27,38 Z M70,46 Q78,42 81,34 L73,38 Z" fill="'+metal+'"/>');
+      P.push('<path d="M33,28 Q50,20 67,28" stroke="#ffffff22" stroke-width="2" fill="none"/>');
+      P.push(crestSVG(o.crest || pick(['kuwagata','crescent','kuwagata','horns','sun'],7), gold));
+    }
+  }else if(head==='hood'){
+    P.push('<path d="M31,72 Q25,30 50,25 Q75,30 69,72 L62,60 Q62,44 50,44 Q38,44 38,60 Z" fill="#e8e4da" stroke="#c9c2b2" stroke-width="1.4"/>');
+    P.push('<path d="M38,60 Q38,42 50,42 Q62,42 62,60 L62,46 Q58,38 50,38 Q42,38 38,46 Z" fill="#e8e4da"/>');
+    P.push('<path d="M33,40 Q50,30 67,40" stroke="#c9c2b2" stroke-width="1.4" fill="none"/>');
+  }else if(head==='shinobiHood'){
+    P.push('<path d="M31,70 Q27,26 50,23 Q73,26 69,70 L63,58 Q63,44 50,44 Q37,44 37,58 Z" fill="#23232b"/>');
+    P.push('<path d="M37,66 Q50,74 63,66 L63,78 Q50,86 37,78 Z" fill="#23232b"/>');
+  }else if(head==='bowl'){
+    P.push('<path d="M31,44 Q31,25 50,25 Q69,25 69,44 Z" fill="#a33326" stroke="#6e1f17" stroke-width="1.6"/>');
+    P.push('<path d="M31,44 H69 L66,48 H34 Z" fill="#6e1f17"/>');
+  }else if(head==='tallhat'){
+    P.push('<path d="M41,46 L44,7 L58,9 L60,46 Z" fill="#b8b8c0" stroke="#8a8a96" stroke-width="1.4"/>');
+    P.push('<circle cx="51" cy="14" r="3" fill="'+gold+'"/>');
+  }else if(head==='wild'){
+    P.push('<path d="M32,50 Q24,36 30,22 L38,32 L36,18 L46,28 L50,14 L54,28 L64,18 L62,32 L70,22 Q76,36 68,50 Q60,38 50,38 Q40,38 32,50 Z" fill="'+hairC+'"/>');
+    P.push('<rect x="33" y="42" width="34" height="5" rx="2" fill="#a33326"/>');
+  }else if(head==='band'){
+    P.push('<path d="M32,48 Q31,28 50,26 Q69,28 68,48 Q60,38 50,38 Q40,38 32,48 Z" fill="'+hairC+'"/>');
+    P.push('<rect x="32" y="43" width="36" height="5.5" rx="2" fill="#e8e4da"/>');
+  }else if(head==='monk'){
+    P.push('<path d="M34,40 Q38,33 50,32 Q62,33 66,40" stroke="#ffffff22" stroke-width="3" fill="none"/>');
+  }else if(head==='eboshi'){
+    P.push('<path d="M40,44 L38,12 Q48,6 56,10 L58,28 L53,44 Z" fill="#1c1714"/>');
+  }else if(head==='femaleHair'){
+    P.push('<path d="M31,48 Q29,24 50,22 Q71,24 69,48 Q62,36 50,36 Q38,36 31,48 Z" fill="'+hairC+'"/>');
+    P.push('<path d="M64,32 l10,-7 M70,36 l9,-3" stroke="'+gold+'" stroke-width="2"/>');
+  }else if(head==='femaleBand'){
+    P.push('<path d="M31,48 Q29,24 50,22 Q71,24 69,48 Q62,36 50,36 Q38,36 31,48 Z" fill="'+hairC+'"/>');
+    P.push('<rect x="32" y="42" width="36" height="5" rx="2" fill="#e8e4da"/>');
+  }else if(head==='pageHair'){
+    P.push('<path d="M32,50 Q30,28 50,26 Q70,28 68,50 Q60,40 50,40 Q40,40 32,50 Z" fill="'+hairC+'"/>');
+  }
+  // 装飾品
+  if(o.beads) P.push('<path d="M38,86 Q50,98 62,86" stroke="none" fill="none"/>'+[0,1,2,3,4,5,6].map(i=>{const t=i/6;const x=38+24*t;const y=86+Math.sin(Math.PI*t)*10;return '<circle cx="'+x+'" cy="'+y+'" r="2" fill="#6e5a3a"/>';}).join(''));
+  if(o.crossPend) P.push('<path d="M50,92 v12 M44,97 h12" stroke="'+gold+'" stroke-width="2.6"/>');
+  if(o.extra==='gunbai') P.push('<g transform="translate(80,100) rotate(-18)"><ellipse cx="0" cy="-8" rx="9" ry="11" fill="#8a5a2a" stroke="#5e3d1c" stroke-width="1.4"/><rect x="-1.4" y="2" width="2.8" height="12" fill="#5e3d1c"/></g>');
+  if(o.extra==='sword') P.push('<path d="M70,86 L88,64" stroke="#b8b8c0" stroke-width="3"/><circle cx="70" cy="86" r="3.4" fill="'+gold+'"/>');
+  // 額装枠
+  P.push('<rect x="2" y="2" width="96" height="116" rx="7" fill="none" stroke="'+(TIER[tier].color)+'" stroke-width="2.4"/>');
+  if(tier===5) P.push('<rect x="6" y="6" width="88" height="108" rx="5" fill="none" stroke="'+gold+'" stroke-width="1" opacity="0.6"/>');
+  P.push('</svg>');
+  return P.join('');
+}
+function crestSVG(kind, gold){
+  switch(kind){
+    case 'crescent': return '<path d="M32,24 A20,20 0 0 1 68,24 A24,26 0 0 0 32,24 Z" fill="'+gold+'"/>';
+    case 'sun': return '<circle cx="50" cy="19" r="7" fill="'+gold+'"/>';
+    case 'rays': return '<g stroke="'+gold+'" stroke-width="2.4">'+[-40,-20,0,20,40].map(a=>'<line x1="50" y1="28" x2="'+(50+Math.sin(a*Math.PI/180)*18)+'" y2="'+(28-Math.cos(a*Math.PI/180)*18)+'"/>').join('')+'</g><circle cx="50" cy="28" r="3.4" fill="'+gold+'"/>';
+    case 'horns': return '<path d="M42,32 Q30,22 33,7 M58,32 Q70,22 67,7" stroke="#7c6a3c" stroke-width="4.4" fill="none"/>';
+    case 'antlers': return '<path d="M43,32 Q38,18 41,8 M41,20 L34,14 M57,32 Q62,18 59,8 M59,20 L66,14" stroke="'+gold+'" stroke-width="2.6" fill="none"/>';
+    case 'antlersBig': return '<path d="M42,32 Q34,16 38,2 M39,20 L30,14 M40,10 L33,5 M58,32 Q66,16 62,2 M61,20 L70,14 M60,10 L67,5" stroke="'+gold+'" stroke-width="3" fill="none"/>';
+    case 'ai': return '<circle cx="50" cy="18" r="8.6" fill="'+gold+'"/><text x="50" y="22" text-anchor="middle" font-size="11" font-weight="bold" fill="#1c2336" font-family="serif">愛</text>';
+    case 'fern': return '<path d="M50,32 Q40,18 33,22 M50,32 Q50,12 50,8 M50,32 Q60,18 67,22" stroke="'+gold+'" stroke-width="2.4" fill="none"/>';
+    case 'cross': return '<circle cx="50" cy="19" r="8" fill="none" stroke="'+gold+'" stroke-width="2"/><path d="M50,12 V26 M43,19 H57" stroke="'+gold+'" stroke-width="2.2"/>';
+    case 'kuwagata': default:
+      return '<path d="M44,32 Q35,18 40,6 M56,32 Q65,18 60,6" stroke="'+gold+'" stroke-width="3" fill="none"/><circle cx="50" cy="29" r="3.2" fill="'+gold+'"/>';
+  }
+}
+function lordBio(name){
+  return (typeof LORD_BIO!=='undefined' && LORD_BIO[name]) || '戦国の世を生きた武士。詳しい記録は多く残っていない。';
+}
+
 // ---------- 出陣画面（ランク選択） ----------
 function openPrep(castle){
   const ch=challengerFor(castle);
@@ -799,11 +970,13 @@ function openPrep(castle){
   const lv=playerLevel();
   let html='<div class="prep"><h3>出陣 — '+castle.name+'</h3>';
   html+='<div class="prep-enemy tier-'+l.t+'">'
+    +'<div class="prep-port">'+portraitSVG(l, castle, 68)+'</div>'
+    +'<div class="prep-info">'
     +'<div class="b-tier" style="color:'+TIER[l.t].color+'">'+TIER[l.t].label+(ch.retrain?'（鍛え直し）':'')+'</div>'
     +'<div class="prep-name">'+l.n+'</div>'
     +'<div class="prep-unit">'+UNITS[u].icon+' '+UNITS[u].name+' を率いる　<span class="muted">武'+l.b+' 知'+l.i+' 統'+l.l+'</span></div>'
     +(ch.retrain?'<div class="prep-cur">現在の練度: '+(curTr?TRAIN_MARK[curTr]+TRAIN_NAME[curTr]:'通常')+'</div>':'')
-    +'</div>';
+    +'</div></div>';
   html+='<div class="prep-ranks">';
   RANKS.forEach(r=>{
     const unlocked = lv>=r.lv;
@@ -830,7 +1003,91 @@ function openPrep(castle){
 let battle=null;
 function rnd(a,b){ return a+Math.random()*(b-a); }
 function critChance(){ return 5+state.stats.un*0.3; }
-function battleLog(s){ if(battle){ battle.log.unshift(s); if(battle.log.length>7)battle.log.length=7; } }
+function battleLog(s){
+  if(!battle) return;
+  battle.log.unshift(s);
+  if(battle.log.length>7) battle.log.length=7;
+  const el=document.getElementById('b-log');
+  if(el) el.innerHTML=battle.log.map((x,i)=>'<div class="'+(i===0?'new':'')+'">'+x+'</div>').join('');
+}
+// --- 合戦ステージ演出ヘルパー ---
+function stageEl(){ return document.getElementById('bs-fx'); }
+function stageW(){ const st=document.getElementById('b-stage'); return st? st.offsetWidth : 480; }
+function fxSpawn(cls, html, xPct, yPct, life, vars){
+  const box=stageEl(); if(!box) return null;
+  const e=document.createElement('div');
+  e.className='fx '+cls;
+  e.innerHTML=html;
+  e.style.left=xPct+'%'; e.style.top=yPct+'%';
+  if(vars) for(const k in vars) e.style.setProperty(k, vars[k]);
+  box.appendChild(e);
+  setTimeout(()=>e.remove(), life||800);
+  return e;
+}
+function fxDmg(side, amount, opts){
+  opts=opts||{};
+  const x = side==='enemy' ? 62+Math.random()*16 : 12+Math.random()*16;
+  const cls = 'fx-dmg'+(opts.crit?' crit':'')+(opts.heal?' heal':'');
+  fxSpawn(cls, (opts.heal?'+':'−')+Math.round(amount)+(opts.crit?'！':''), x, 36+Math.random()*14, 980);
+}
+function fxText(side, text, cls){
+  const x = side==='enemy' ? 58 : 10;
+  fxSpawn('fx-text '+(cls||''), text, x, 10, 1150);
+}
+function fxProjectiles(from, glyph, n, opts){
+  opts=opts||{};
+  const dist=(stageW()*0.52)*(from==='player'?1:-1);
+  for(let i=0;i<n;i++){
+    setTimeout(()=>{
+      if(!stageEl()) return;
+      const x = from==='player' ? 14+Math.random()*10 : 64+Math.random()*10;
+      const y = 40+Math.random()*22;
+      const e=fxSpawn('fx-fly '+(opts.cls||''), glyph, x, y, opts.life||720, {'--dx':dist+'px','--arc':(opts.arc||0)+'px'});
+      if(e && from==='enemy') e.classList.add('flip');
+    }, i*(opts.gap||70));
+  }
+}
+function fxFlash(side, n){
+  for(let i=0;i<n;i++){
+    setTimeout(()=>{
+      const x = side==='enemy' ? 60+Math.random()*18 : 12+Math.random()*18;
+      fxSpawn('fx-flash','✸', x, 44+Math.random()*16, 340);
+      fxSpawn('fx-smoke','', side==='enemy'? x-3 : x+3, 40+Math.random()*16, 850);
+    }, i*110);
+  }
+}
+function fxBurst(side, big){
+  const x = side==='enemy' ? 66 : 16;
+  fxSpawn('fx-burst'+(big?' big':''),'💥', x+Math.random()*8, 42+Math.random()*12, big?760:540);
+}
+function armyAnim(side, cls, dur){
+  const el=document.getElementById(side==='enemy'?'bs-enemy':'bs-player');
+  if(!el) return;
+  el.classList.add(cls);
+  setTimeout(()=>el.classList.remove(cls), dur||750);
+}
+function setShield(on){
+  const old=document.getElementById('bs-shield');
+  if(old) old.remove();
+  if(on){
+    const box=stageEl(); if(!box) return;
+    const e=document.createElement('div');
+    e.className='fx fx-shield'; e.id='bs-shield'; e.textContent='🛡';
+    e.style.left='30%'; e.style.top='38%';
+    box.appendChild(e);
+  }
+}
+function setStun(on){
+  const old=document.getElementById('bs-stun');
+  if(old) old.remove();
+  if(on){
+    const box=stageEl(); if(!box) return;
+    const e=document.createElement('div');
+    e.className='fx fx-stun'; e.id='bs-stun'; e.textContent='💫';
+    e.style.left='72%'; e.style.top='10%';
+    box.appendChild(e);
+  }
+}
 
 function startBattle(castle, ch, rank){
   const l=ch.l, u=unitOf(castle,l);
@@ -842,74 +1099,122 @@ function startBattle(castle, ch, rank){
     ppow:playerPow(), epow,
     php:pmax, pmax,
     ehp:Math.round(100+epow*0.55), emax:Math.round(100+epow*0.55),
-    buff:0, stun:false, guard:false, busy:false,
+    buff:0, stun:false, guard:false, busy:true,
     eTurn:0, loaded:false, heiki:0, tele:null,
     over:false, log:[],
   };
+  buildBattleShell();
+  showOverlay();
   battleLog('【'+castle.name+'】'+rankArmyName(u,rank)+'が布陣している！');
   battleLog(TIER[l.t].label+'・'+l.n+'が'+UNITS[u].name+'を率いて立ちはだかる！');
   if(l.t===5) battleLog('…尋常ならざる気配。レア大名との一戦！');
-  if(u==='yumi'){
-    const d=Math.max(4,Math.round(epow*0.15));
-    battle.php-=d;
-    battleLog('🏹 開戦と同時に矢の雨が降り注ぐ！ 先制で'+d+'の損害！');
-  }
-  renderBattle();
-  showOverlay();
+  // 開戦演出（弓隊は先制射撃）
+  setTimeout(()=>{
+    const b=battle; if(!b||b.over) return;
+    if(b.unitKey==='yumi'){
+      fxProjectiles('enemy','',7,{cls:'arrow',arc:-42,gap:60,life:700});
+      setTimeout(()=>{
+        if(!battle||battle.over) return;
+        const d=Math.max(4,Math.round(b.epow*0.15));
+        b.php-=d;
+        armyAnim('player','shake',420);
+        fxDmg('player',d);
+        battleLog('🏹 開戦と同時に矢の雨が降り注ぐ！ 先制で'+d+'の損害！');
+        b.busy=false; updateBattleUI();
+      },640);
+    }else{
+      b.busy=false; updateBattleUI();
+    }
+  },480);
 }
-function renderBattle(){
+// バトル画面の構築（初回のみ。以後は updateBattleUI で部分更新）
+function buildBattleShell(){
   const b=battle;
-  if(!b) return;
-  const modal=document.getElementById('modal');
   const l=b.lord, u=UNITS[b.unitKey];
   const party=topAllies();
+  const eCount=Math.min(8,3+b.rank*2);
+  let units='';
+  for(let i=0;i<eCount;i++) units+='<span class="bs-unit" style="animation-delay:'+(i*0.18)+'s">'+u.icon+'</span>';
+  let pUnits='<span class="bs-unit tono" style="animation-delay:0.05s">🚩</span>';
+  party.slice(0,5).forEach((a,i)=>{
+    pUnits+='<span class="bs-unit" style="animation-delay:'+((i+1)*0.16)+'s">'+UNITS[unitOf(a.castle,a.lord)].icon+'</span>';
+  });
   let html='<div class="battle">';
-  html+='<div class="b-enemy tier-'+l.t+' rank-'+b.rank+'">'
-    +'<div class="b-rankband rk'+b.rank+'">'+rankArmyName(b.unitKey,b.rank)+'</div>'
-    +'<div class="b-units">'+u.icon.repeat(3+b.rank*2)+'</div>'
-    +'<div class="b-tier" style="color:'+TIER[l.t].color+'">'+TIER[l.t].label+'</div>'
-    +'<div class="b-name">'+l.n+'</div>'
-    +'<div class="b-stats">武 '+l.b+'　知 '+l.i+'　統 '+l.l+'</div>'
-    +hpBar(b.ehp,b.emax,'enemy')+'</div>';
-  html+='<div class="b-log">'+b.log.map((s,i)=>'<div class="'+(i===0?'new':'')+'">'+s+'</div>').join('')+'</div>';
-  html+='<div class="b-player"><div class="b-pname">'+(b.guard?'🛡 ':'')+'殿の軍勢（戦力 '+Math.round(b.ppow)+'）'
-    +(party.length?'<span class="b-party">出陣: '+party.map(a=>a.lord.n+(trainOf(a.key)?TRAIN_MARK[trainOf(a.key)]:'')).join('、')+'</span>':'<span class="b-party">出陣: 殿ひとり…</span>')
-    +'</div>'+hpBar(b.php,b.pmax,'player')+'</div>';
-  if(b.over==='win'){
-    const tr=RANKS[b.rank-1].train;
-    html+='<div class="b-result win">🎉 勝利！ '+(b.retrain
-      ? '<b>'+l.n+'</b>の部隊が'+TRAIN_MARK[tr]+TRAIN_NAME[tr]+'に鍛え直された！'
-      : '<b>'+l.n+'</b>'+(tr?'が'+TRAIN_MARK[tr]+TRAIN_NAME[tr]+'状態':'')+' が仲間になった！')+'</div>';
-    html+='<button class="btn primary" id="b-close">万歳！</button>';
-  }else if(b.over==='lose'){
-    html+='<div class="b-result lose">敗北… 兵を退いた。鍛えて出直そう。</div>';
-    html+='<button class="btn" id="b-close">退却する</button>';
-  }else{
-    const dis=b.busy?' disabled':'';
-    html+='<div class="b-actions">'
-      +'<button class="btn atk" id="b-atk"'+dis+'>⚔ 突撃'+(b.buff?'（鼓舞×'+b.buff+'）':'')+'</button>'
-      +'<button class="btn str" id="b-str"'+dis+'>📜 計略</button>'
-      +'<button class="btn rly" id="b-rly"'+dis+'>🚩 鼓舞</button>'
-      +'<button class="btn def" id="b-def"'+dis+'>🛡 防御</button>'
-      +'<button class="btn run" id="b-run">🏃 退却</button>'
-      +'</div>';
-  }
+  html+='<div class="b-rankband rk'+b.rank+'">'+rankArmyName(b.unitKey,b.rank)+'　<span style="color:'+TIER[l.t].color+'">'+TIER[l.t].label+'・'+l.n+'</span></div>';
+  html+='<div class="b-stage" id="b-stage">'
+    +'<div class="bs-ground"></div>'
+    +'<div class="bs-army player" id="bs-player">'+pUnits+'</div>'
+    +'<div class="bs-army enemy" id="bs-enemy">'+units+'</div>'
+    +'<div class="bs-general" id="bs-general">'+portraitSVG(l,b.castle,50)+'</div>'
+    +'<div id="bs-fx"></div>'
+    +'</div>';
+  html+='<div class="b-bars">'
+    +'<div class="b-barrow"><span class="b-side">敵</span><div class="b-barwrap" id="b-ehp-wrap">'+hpBar(b.ehp,b.emax,'enemy')+'</div></div>'
+    +'<div class="b-barrow"><span class="b-side">殿</span><div class="b-barwrap" id="b-php-wrap">'+hpBar(b.php,b.pmax,'player')+'</div></div>'
+    +'</div>';
+  html+='<div class="b-log" id="b-log"></div>';
+  html+='<div class="b-pname">'+(party.length?'出陣: '+party.map(a=>a.lord.n+(trainOf(a.key)?TRAIN_MARK[trainOf(a.key)]:'')).join('、'):'出陣: 殿ひとり…')+'　<span class="b-party">戦力 '+Math.round(b.ppow)+'</span></div>';
+  html+='<div id="b-bottom"><div class="b-actions">'
+    +'<button class="btn atk" id="b-atk" disabled>⚔ 突撃</button>'
+    +'<button class="btn str" id="b-str" disabled>📜 計略</button>'
+    +'<button class="btn rly" id="b-rly" disabled>🚩 鼓舞</button>'
+    +'<button class="btn def" id="b-def" disabled>🛡 防御</button>'
+    +'<button class="btn run" id="b-run">🏃 退却</button>'
+    +'</div></div>';
   html+='</div>';
-  modal.innerHTML=html;
-  if(b.over){
-    document.getElementById('b-close').onclick=()=>{
-      hideOverlay();
-      if(b.over==='win') afterWin(b);
-      battle=null;
-      updateNodeStates(); renderPanel(); updateHud();
-    };
+  document.getElementById('modal').innerHTML=html;
+  document.getElementById('b-atk').onclick=()=>playerAct('atk');
+  document.getElementById('b-str').onclick=()=>playerAct('str');
+  document.getElementById('b-rly').onclick=()=>playerAct('rly');
+  document.getElementById('b-def').onclick=()=>playerAct('def');
+  document.getElementById('b-run').onclick=()=>{
+    if(!battle||battle.over) return;
+    battle.over='lose'; battleLog('兵を退いた…'); showBattleResult();
+  };
+}
+function updateBattleUI(){
+  const b=battle; if(!b) return;
+  const ew=document.getElementById('b-ehp-wrap'), pw=document.getElementById('b-php-wrap');
+  if(ew) ew.innerHTML=hpBar(b.ehp,b.emax,'enemy');
+  if(pw) pw.innerHTML=hpBar(b.php,b.pmax,'player');
+  ['b-atk','b-str','b-rly','b-def'].forEach(id=>{
+    const e=document.getElementById(id);
+    if(e) e.disabled=!!b.busy||!!b.over;
+  });
+  const atk=document.getElementById('b-atk');
+  if(atk) atk.textContent='⚔ 突撃'+(b.buff?'（鼓舞×'+b.buff+'）':'');
+}
+function showBattleResult(){
+  const b=battle; if(!b) return;
+  b.busy=true; updateBattleUI();
+  const bottom=document.getElementById('b-bottom');
+  if(!bottom) return;
+  if(b.over==='win'){
+    const en=document.getElementById('bs-enemy');
+    if(en) en.classList.add('dead');
+    const gp=document.getElementById('bs-general');
+    if(gp) gp.classList.add('beaten');
+    const tr=RANKS[b.rank-1].train;
+    bottom.innerHTML='<div class="b-result win">🎉 勝利！</div>'
+      +'<div class="b-recruit">'+portraitSVG(b.lord,b.castle,84)
+      +'<div class="b-recruit-info">'
+      +'<div class="b-recruit-name"><span style="color:'+TIER[b.lord.t].color+'">'+TIER[b.lord.t].label+'</span>　'+b.lord.n+(tr?'<span class="train">　'+TRAIN_MARK[tr]+TRAIN_NAME[tr]+'</span>':'')+'</div>'
+      +'<div class="b-recruit-msg">'+(b.retrain?'部隊が鍛え直された！':'が仲間になった！')+'</div>'
+      +'<p class="b-bio">'+lordBio(b.lord.n)+'</p>'
+      +'</div></div>'
+      +'<button class="btn primary" id="b-close">万歳！</button>';
   }else{
-    document.getElementById('b-atk').onclick=()=>playerAct('atk');
-    document.getElementById('b-str').onclick=()=>playerAct('str');
-    document.getElementById('b-rly').onclick=()=>playerAct('rly');
-    document.getElementById('b-def').onclick=()=>playerAct('def');
-    document.getElementById('b-run').onclick=()=>{battle.over='lose';battleLog('兵を退いた…');renderBattle();};
+    const pl=document.getElementById('bs-player');
+    if(pl) pl.classList.add('dead');
+    bottom.innerHTML='<div class="b-result lose">敗北… 兵を退いた。鍛えて出直そう。</div>'
+      +'<button class="btn" id="b-close">退却する</button>';
   }
+  document.getElementById('b-close').onclick=()=>{
+    hideOverlay();
+    if(b.over==='win') afterWin(b);
+    battle=null;
+    updateNodeStates(); renderPanel(); updateHud();
+  };
 }
 function hpBar(v,max,cls){
   const pct=Math.max(0,v/max*100);
@@ -918,16 +1223,45 @@ function hpBar(v,max,cls){
 function playerAct(kind){
   const b=battle;
   if(!b||b.over||b.busy) return;
-  const l=b.lord;
+  b.busy=true; updateBattleUI();
+  // 行動アニメーション
+  let impact=420;
+  if(kind==='atk'){
+    armyAnim('player','lunge',700);
+    setTimeout(()=>fxProjectiles('player','✦',3,{gap:60,life:480}),160);
+  }else if(kind==='str'){
+    fxProjectiles('player','📜',1,{life:640,arc:-32});
+    impact=560;
+  }else if(kind==='rly'){
+    armyAnim('player','cheer',650);
+    for(let i=0;i<5;i++) setTimeout(()=>fxSpawn('fx-spark','✨',10+Math.random()*24,28+Math.random()*30,720),i*90);
+    impact=320;
+  }else if(kind==='def'){
+    setShield(true);
+    impact=220;
+  }
+  setTimeout(()=>{
+    if(!battle||battle.over) return;
+    resolvePlayerAct(kind);
+  }, impact);
+}
+function resolvePlayerAct(kind){
+  const b=battle, l=b.lord;
   if(kind==='atk'){
     if(b.unitKey==='shinobi' && !b.stun && Math.random()<0.25){
       b.buff=0;
+      fxSpawn('fx-smoke big','',64,42,850);
+      fxText('enemy','ミス！','miss');
       battleLog('🥷 煙玉！ 突撃は空を切った…');
     }else{
       let dmg=Math.max(6,(b.ppow*0.34-b.epow*0.08)*rnd(0.85,1.25));
       dmg*=(1+0.35*b.buff); b.buff=0;
-      if(Math.random()*100<critChance()){dmg*=1.7;battleLog('⚡ 会心の一撃！');}
+      let crit=false;
+      if(Math.random()*100<critChance()){dmg*=1.7;crit=true;battleLog('⚡ 会心の一撃！');}
       b.ehp-=dmg;
+      armyAnim('enemy','shake',420);
+      fxBurst('enemy',crit);
+      fxDmg('enemy',dmg,{crit:crit});
       battleLog('突撃！ '+l.n+'軍に '+Math.round(dmg)+' の損害。');
     }
   }else if(kind==='str'){
@@ -935,15 +1269,20 @@ function playerAct(kind){
     if(Math.random()*100<p){
       const dmg=b.ppow*0.55*rnd(0.9,1.2);
       b.ehp-=dmg;
+      armyAnim('enemy','shake',500);
+      fxBurst('enemy',true);
+      fxDmg('enemy',dmg);
       battleLog('📜 計略成功！ '+Math.round(dmg)+' の大損害！');
-      if(Math.random()<0.35){b.stun=true;battleLog(l.n+'軍は混乱している！');}
+      if(Math.random()<0.35){b.stun=true;setStun(true);battleLog(l.n+'軍は混乱している！');}
     }else{
+      fxText('enemy','見破られた','miss');
       battleLog('計略は見破られた…！');
     }
   }else if(kind==='rly'){
     const heal=Math.min(b.pmax-b.php, b.pmax*0.15+state.stats.tou*0.6);
     b.php+=heal;
     if(b.buff<2)b.buff++;
+    fxDmg('player',heal,{heal:true});
     battleLog('🚩 鼓舞！ 兵気回復 '+Math.round(heal)+'、次の突撃が強化された。');
   }else if(kind==='def'){
     b.guard=true;
@@ -951,78 +1290,143 @@ function playerAct(kind){
     b.php+=heal;
     battleLog('🛡 防御の構え！（次に受ける攻撃を大きく軽減）');
   }
-  if(b.ehp<=0){b.over='win';renderBattle();return;}
-  b.busy=true;
+  updateBattleUI();
+  if(b.ehp<=0){ b.over='win'; setTimeout(showBattleResult,650); return; }
+  setTimeout(runEnemyTurn, 500);
+}
+// 敵ターン（演出→着弾→判定）
+function runEnemyTurn(){
+  const b=battle;
+  if(!b||b.over) return;
+  if(b.stun){
+    b.stun=false; setStun(false);
+    fxText('enemy','混乱中…','miss');
+    battleLog(b.lord.n+'軍は混乱して動けない！');
+    b.busy=false; updateBattleUI();
+    return;
+  }
+  const plan=enemyPlan(b);
+  enemyAnim(b, plan);
   setTimeout(()=>{
     if(!battle||battle.over) return;
-    b.busy=false;
-    if(b.stun){
-      b.stun=false;
-      battleLog(l.n+'軍は混乱して動けない！');
-    }else{
-      enemyAct(b, battleLog);
+    if(plan.skip){
+      if(plan.msg) battleLog(plan.msg);
+      b.busy=false; updateBattleUI();
+      return;
     }
-    if(b.php<=0){b.over='lose';}
-    renderBattle();
-  },480);
-  renderBattle();
+    const res=enemyApply(b, plan, battleLog);
+    armyAnim('player', plan.kind==='kokuzushi'?'bigshake':'shake', 500);
+    fxDmg('player',res.dmg);
+    if(res.guarded) setShield(false);
+    if(res.extra){
+      setTimeout(()=>{
+        if(!battle||battle.over) return;
+        fxProjectiles('enemy','✦',1,{life:420});
+        setTimeout(()=>{ if(battle&&!battle.over){ fxDmg('player',res.extra); updateBattleUI(); } },300);
+      },220);
+    }
+    updateBattleUI();
+    if(b.php<=0){ b.over='lose'; setTimeout(showBattleResult,600); return; }
+    b.busy=false; updateBattleUI();
+  }, plan.animT||560);
 }
-// 部隊別の敵行動（logf=ログ出力関数。シミュレータと共用）
-function enemyAct(b, logf){
-  const l=b.lord, u=b.unitKey;
+// 部隊別の演出
+function enemyAnim(b, plan){
+  switch(plan.kind){
+    case 'tele-charge':
+      fxText('enemy','⚠ 突撃の構え！','warn'); armyAnim('enemy','stomp',650); break;
+    case 'charge':
+      armyAnim('enemy','charge',800);
+      for(let i=0;i<4;i++) setTimeout(()=>fxSpawn('fx-smoke','',58-i*9,56,750),i*120);
+      break;
+    case 'reload':
+      fxText('enemy','装填中…','info');
+      fxSpawn('fx-smoke','',66,38,850); fxSpawn('fx-smoke','',74,42,850);
+      break;
+    case 'volley': case 'volley3':
+      fxFlash('enemy', plan.kind==='volley3'?3:2);
+      fxProjectiles('enemy','',plan.kind==='volley3'?6:4,{cls:'bullet',gap:55,life:430});
+      break;
+    case 'arrows':
+      fxProjectiles('enemy','',7,{cls:'arrow',gap:60,arc:-42,life:700}); break;
+    case 'bomb':
+      fxProjectiles('enemy','',1,{cls:'bombball',arc:-58,life:700});
+      setTimeout(()=>{ if(stageEl()) fxBurst('player',true); },560);
+      break;
+    case 'shuriken':
+      fxProjectiles('enemy','✦',3,{gap:90,life:480}); break;
+    case 'load':
+      fxText('enemy','💣 弾込め…','warn'); fxSpawn('fx-flash','✸',80,54,420); break;
+    case 'aim':
+      fxText('enemy','狙っている…','warn');
+      fxProjectiles('enemy','',2,{cls:'bullet',gap:90,life:430});
+      break;
+    case 'kokuzushi':
+      armyAnim('enemy','stomp',500);
+      fxProjectiles('enemy','',1,{cls:'cannonball',arc:-70,life:840});
+      setTimeout(()=>{ if(stageEl()){ fxBurst('player',true); fxBurst('player',true); } },660);
+      break;
+    case 'watch':
+      fxText('enemy','様子見…','info'); break;
+    case 'thrust':
+      armyAnim('enemy','lungeL',620);
+      setTimeout(()=>fxProjectiles('enemy','✦',2,{gap:70,life:420}),140);
+      break;
+    default:
+      armyAnim('enemy','lungeL',560);
+      setTimeout(()=>fxProjectiles('enemy','✦',2,{gap:70,life:420}),140);
+  }
+}
+// 部隊別の敵行動計画（カウンタを進め、行動内容を返す。実戦・シミュレータ共用）
+function enemyPlan(b){
+  const u=b.unitKey;
   b.eTurn++;
-  const base=()=>Math.max(5,(b.epow*0.30-b.ppow*0.06)*rnd(0.85,1.25));
-  let dmg=0, msg='';
   if(u==='kiba'){
-    if(b.tele==='charge'){
-      b.tele=null; dmg=base()*2.0; msg='🐎 騎馬突撃！！ ';
-    }else if(b.eTurn%3===2){
-      b.tele='charge';
-      logf('🐎 騎馬隊が突撃の構えを見せている…！（防御の好機）');
-      return;
-    }else{ dmg=base()*0.9; }
-  }else if(u==='teppo'){
-    if(b.rank>=3){
-      dmg=base()*1.5; msg='🔫 三段撃ち！装填の隙がない！ ';
-    }else if(b.loaded){
-      b.loaded=false; dmg=base()*1.7; msg='🔫 鉄砲斉射！ ';
-    }else{
-      b.loaded=true;
-      logf('🔫 鉄砲隊は装填中…今が攻め時！');
-      return;
-    }
-  }else if(u==='yumi'){
-    dmg=base(); msg='🏹 ';
-  }else if(u==='suigun'){
-    if(Math.random()<0.25){
-      dmg=base()*1.5; msg='⛵ 焙烙玉が炸裂！ ';
-      if(b.buff>0){ b.buff=0; msg+='（鼓舞の士気が消し飛んだ）'; }
-    }else dmg=base();
-  }else if(u==='shinobi'){
-    dmg=base()*0.9;
-  }else if(u==='heiki'){
+    if(b.tele==='charge'){ b.tele=null; return {kind:'charge', mult:2.0, pre:'🐎 騎馬突撃！！ ', animT:800}; }
+    if(b.eTurn%3===2){ b.tele='charge'; return {skip:true, kind:'tele-charge', msg:'🐎 騎馬隊が突撃の構えを見せている…！（防御の好機）', animT:700}; }
+    return {kind:'attack', mult:0.9, pre:''};
+  }
+  if(u==='teppo'){
+    if(b.rank>=3) return {kind:'volley3', mult:1.5, pre:'🔫 三段撃ち！装填の隙がない！ '};
+    if(b.loaded){ b.loaded=false; return {kind:'volley', mult:1.7, pre:'🔫 鉄砲斉射！ '}; }
+    b.loaded=true;
+    return {skip:true, kind:'reload', msg:'🔫 鉄砲隊は装填中…今が攻め時！', animT:620};
+  }
+  if(u==='yumi') return {kind:'arrows', mult:1.0, pre:'🏹 ', animT:680};
+  if(u==='suigun'){
+    if(Math.random()<0.25) return {kind:'bomb', mult:1.5, pre:'⛵ 焙烙玉が炸裂！ ', burnBuff:true, animT:660};
+    return {kind:'attack', mult:1.0, pre:''};
+  }
+  if(u==='shinobi') return {kind:'shuriken', mult:0.9, pre:''};
+  if(u==='heiki'){
     b.heiki++;
     const ph=b.heiki%3;
-    if(ph===1){
-      logf('💣 兵器隊が「国崩し」に弾込めを始めた…！');
-      return;
-    }
-    if(ph===2){ dmg=base()*0.4; msg='狙いを定めつつ小銃が放たれる…（次は来るぞ、防御！） '; }
-    else { dmg=base()*2.6; msg='💥 国崩し！！ 轟音とともに大筒が火を噴いた！ '; }
-  }else{ // yari
-    const roll=Math.random();
-    if(roll>0.9){ logf(l.n+'軍は様子を見ている…'); return; }
-    if(roll<0.15){ dmg=base()*1.4; msg='槍衾の突き崩し！ '; }
-    else dmg=base();
+    if(ph===1) return {skip:true, kind:'load', msg:'💣 兵器隊が「国崩し」に弾込めを始めた…！', animT:700};
+    if(ph===2) return {kind:'aim', mult:0.4, pre:'狙いを定めつつ小銃が放たれる…（次は来るぞ、防御！） '};
+    return {kind:'kokuzushi', mult:2.6, pre:'💥 国崩し！！ 轟音とともに大筒が火を噴いた！ ', animT:920};
   }
-  if(b.guard){ dmg*=0.45; b.guard=false; msg+='🛡 防御で被害を抑えた！ '; }
+  // yari
+  const roll=Math.random();
+  if(roll>0.9) return {skip:true, kind:'watch', msg:b.lord.n+'軍は様子を見ている…', animT:520};
+  if(roll<0.15) return {kind:'thrust', mult:1.4, pre:'槍衾の突き崩し！ '};
+  return {kind:'attack', mult:1.0, pre:''};
+}
+// 行動計画を適用してダメージ処理（実戦・シミュレータ共用）
+function enemyApply(b, plan, logf){
+  let dmg=Math.max(5,(b.epow*0.30-b.ppow*0.06)*rnd(0.85,1.25))*plan.mult;
+  let msg=plan.pre||'';
+  if(plan.burnBuff && b.buff>0){ b.buff=0; msg+='（鼓舞の士気が消し飛んだ）'; }
+  let guarded=false;
+  if(b.guard){ dmg*=0.45; b.guard=false; guarded=true; msg+='🛡 防御で被害を抑えた！ '; }
   b.php-=dmg;
-  logf(msg+l.n+'軍の攻撃！ '+Math.round(dmg)+' の損害。');
-  if(u==='shinobi' && Math.random()<0.2){
-    const c=Math.max(3,b.epow*0.12*rnd(0.8,1.2));
-    b.php-=c;
-    logf('🥷 手裏剣の追撃！ さらに '+Math.round(c)+'。');
+  logf(msg+b.lord.n+'軍の攻撃！ '+Math.round(dmg)+' の損害。');
+  let extra=0;
+  if(b.unitKey==='shinobi' && Math.random()<0.2){
+    extra=Math.max(3,b.epow*0.12*rnd(0.8,1.2));
+    b.php-=extra;
+    logf('🥷 手裏剣の追撃！ さらに '+Math.round(extra)+'。');
   }
+  return {dmg:dmg, guarded:guarded, extra:extra};
 }
 function afterWin(b){
   const key=lordKey(b.castle.id,b.idx);
@@ -1074,7 +1478,9 @@ function renderZukan(){
         const uicon=UNITS[unitOf(c,l)].icon;
         if(own){
           const tr=trainOf(lordKey(c.id,i));
-          html+='<span class="z-chip own'+(tr===2?' best':'')+'" style="border-color:'+TIER[l.t].color+'"><b style="color:'+TIER[l.t].color+'">'+TIER[l.t].label+'</b> '+(tr?'<span class="train">'+TRAIN_MARK[tr]+'</span>':'')+l.n+' '+uicon+'<small>武'+(l.b+TRAIN_BONUS[tr])+' 知'+(l.i+TRAIN_BONUS[tr])+' 統'+(l.l+TRAIN_BONUS[tr])+'</small></span>';
+          html+='<span class="z-chip own'+(tr===2?' best':'')+'" data-k="'+c.id+'|'+i+'" style="border-color:'+TIER[l.t].color+'" title="クリックで詳細">'
+            +'<span class="z-thumb">'+portraitSVG(l,c,26)+'</span>'
+            +'<span class="z-cinfo"><b style="color:'+TIER[l.t].color+'">'+TIER[l.t].label+'</b> '+(tr?'<span class="train">'+TRAIN_MARK[tr]+'</span>':'')+l.n+' '+uicon+'<small>武'+(l.b+TRAIN_BONUS[tr])+' 知'+(l.i+TRAIN_BONUS[tr])+' 統'+(l.l+TRAIN_BONUS[tr])+'</small></span></span>';
         }else{
           const unlocked=allyCount()>=TIER[l.t].req;
           let note = unlocked ? (l.t===5?'条件あり':'挑戦可') : '仲間'+TIER[l.t].req+'人〜';
@@ -1084,8 +1490,29 @@ function renderZukan(){
       html+='</div></div>';
     });
   });
-  html+='</div>';
+  html+='<p class="s-note">仲間にした武将はクリックすると似顔絵と史実の解説が見られる。</p></div>';
   root.innerHTML=html;
+  root.querySelectorAll('.z-chip.own').forEach(chip=>{
+    chip.onclick=()=>openLordModal(chip.getAttribute('data-k'));
+  });
+}
+// 武将詳細（似顔絵＋史実解説）
+function openLordModal(key){
+  const r=lordByKey(key);
+  if(!r) return;
+  const tr=trainOf(key);
+  const u=UNITS[unitOf(r.castle,r.lord)];
+  const bn=TRAIN_BONUS[tr];
+  showModal('<div class="lord-modal">'
+    +'<div class="lm-port">'+portraitSVG(r.lord,r.castle,116)+'</div>'
+    +'<div class="lm-info">'
+    +'<div class="lm-name"><span style="color:'+TIER[r.lord.t].color+'">'+TIER[r.lord.t].label+'</span>　'+r.lord.n+(tr?'<span class="train">　'+TRAIN_MARK[tr]+TRAIN_NAME[tr]+'</span>':'')+'</div>'
+    +'<div class="lm-sub">'+r.castle.name+'（'+r.castle.pref+'）　'+u.icon+' '+u.name+'</div>'
+    +'<div class="lm-stats">武力 '+(r.lord.b+bn)+'　知力 '+(r.lord.i+bn)+'　統率 '+(r.lord.l+bn)+(tr?' <small>（練度+'+bn+'込み）</small>':'')+'</div>'
+    +'<p class="lm-bio">'+lordBio(r.lord.n)+'</p>'
+    +'</div></div>'
+    +'<button class="btn" id="m-close">閉じる</button>');
+  document.getElementById('m-close').onclick=hideOverlay;
 }
 
 // ---------- 我が身（ステータス） ----------
@@ -1263,7 +1690,8 @@ function simBattle2(lord, unitKey, rank, n){
       }
       if(sb.ehp<=0){wins++;break;}
       if(sb.stun){sb.stun=false;continue;}
-      enemyAct(sb, ()=>{});
+      const pl=enemyPlan(sb);
+      if(!pl.skip) enemyApply(sb, pl, ()=>{});
       if(sb.php<=0)break;
     }
     turnsSum+=turns;
@@ -1297,6 +1725,7 @@ window.GAME={
   set state(s){state=s;},
   save, addSteps, simBattle, simBattle2, refreshAll, setMode,
   lordByKey, challengerFor, openPrep, playerPow, playerMaxHP, enemyPow, playerLevel, unitOf,
+  portraitSVG, openLordModal, startBattle, hideOverlay,
   // GPSテスト用: debugGpsOn()→debugFix(lat,lon[,tsOffsetSec])で擬似測位
   debugGpsOn(){ state.mode='gps'; geoStatus='ok'; updateModeUI(); },
   debugGpsOff(){ state.mode='virtual'; save(); stopGeo(); updateModeUI(); movePlayerMarker(); updateNodeStates(); renderPanel(); },

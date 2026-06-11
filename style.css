@@ -329,9 +329,165 @@ main{flex:1;min-height:0;position:relative;}
 .s-lv .sbar{margin-top:7px;}
 .s-lv-note{font-size:11px;color:var(--muted);margin-top:5px;}
 
+/* ===== v3: 合戦ステージ ===== */
+.b-stage{
+  position:relative;height:150px;border-radius:10px;overflow:hidden;
+  background:linear-gradient(180deg,#1a2030 0%,#232c42 55%,#3a3326 62%,#2c271d 100%);
+  border:1px solid var(--border);
+}
+.bs-ground{
+  position:absolute;left:0;right:0;bottom:0;height:42%;
+  background:repeating-linear-gradient(100deg,#00000014 0 14px,transparent 14px 30px);
+  pointer-events:none;
+}
+.bs-army{
+  position:absolute;bottom:14px;width:42%;display:flex;flex-wrap:wrap;
+  gap:1px;align-items:flex-end;z-index:2;
+}
+.bs-army.player{left:3%;}
+.bs-army.enemy{right:3%;justify-content:flex-end;}
+.bs-unit{
+  display:inline-block;font-size:19px;line-height:1.2;
+  animation:bobble 1.5s ease-in-out infinite alternate;
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.5));
+}
+.bs-unit.tono{font-size:22px;}
+.bs-army.enemy .bs-unit{transform:scaleX(-1);}
+@keyframes bobble{from{translate:0 0;}to{translate:0 -3px;}}
+.bs-general{
+  position:absolute;top:6px;right:8px;z-index:3;opacity:.96;
+  filter:drop-shadow(0 2px 6px rgba(0,0,0,.6));
+}
+.bs-general.beaten{filter:grayscale(1) brightness(.55);}
+/* 軍勢アクション */
+.bs-army.lunge{animation:lungeR .7s ease-in-out;}
+.bs-army.lungeL{animation:lungeL .6s ease-in-out;}
+.bs-army.charge{animation:chargeL .8s cubic-bezier(.5,0,.4,1);}
+.bs-army.cheer{animation:cheerHop .65s ease-in-out;}
+.bs-army.stomp{animation:stompJig .6s ease-in-out;}
+.bs-army.shake{animation:shakeX .42s ease-in-out;}
+.bs-army.bigshake{animation:shakeBig .55s ease-in-out;}
+.bs-army.dead .bs-unit{animation:fallDown .8s ease-in forwards;}
+@keyframes lungeR{45%{translate:52px 0;}100%{translate:0 0;}}
+@keyframes lungeL{45%{translate:-40px 0;}100%{translate:0 0;}}
+@keyframes chargeL{50%{translate:-95px -2px;}100%{translate:0 0;}}
+@keyframes cheerHop{30%{translate:0 -8px;}60%{translate:0 0;}80%{translate:0 -5px;}}
+@keyframes stompJig{25%{translate:-4px 0;}50%{translate:4px -3px;}75%{translate:-3px 0;}}
+@keyframes shakeX{20%{translate:-7px 0;}40%{translate:6px 0;}60%{translate:-5px 0;}80%{translate:3px 0;}}
+@keyframes shakeBig{15%{translate:-12px -3px;}35%{translate:10px 2px;}55%{translate:-8px 0;}75%{translate:6px -2px;}}
+@keyframes fallDown{to{transform:scaleX(-1) rotate(85deg) translate(8px,10px);opacity:.15;}}
+.bs-army.player.dead .bs-unit{animation:fallDownP .8s ease-in forwards;}
+@keyframes fallDownP{to{transform:rotate(-85deg) translate(-8px,10px);opacity:.15;}}
+/* エフェクト */
+#bs-fx{position:absolute;inset:0;z-index:4;pointer-events:none;}
+.fx{position:absolute;pointer-events:none;}
+.fx-fly{
+  font-size:15px;color:#ffe9b0;
+  animation:flyArc .62s linear forwards;
+  text-shadow:0 0 5px rgba(255,210,120,.6);
+}
+.fx-fly.flip{--rot:180deg;}
+@keyframes flyArc{
+  0%{transform:translate(0,0) rotate(var(--rot,0deg));opacity:1;}
+  55%{transform:translate(calc(var(--dx)*0.55),var(--arc,0px)) rotate(var(--rot,0deg));}
+  100%{transform:translate(var(--dx),10px) rotate(var(--rot,0deg));opacity:.85;}
+}
+.fx-fly.arrow{
+  width:17px;height:2px;background:#cdb97e;border-radius:1px;
+  animation-duration:.66s;
+}
+.fx-fly.arrow::after{
+  content:'';position:absolute;right:-4px;top:-2.6px;
+  border-left:7px solid #e8e2d0;border-top:3.6px solid transparent;border-bottom:3.6px solid transparent;
+}
+.fx-fly.bullet{
+  width:11px;height:2.4px;background:#ffd27e;border-radius:2px;
+  box-shadow:0 0 7px #ffae42;animation-duration:.42s;
+}
+.fx-fly.bombball{
+  width:11px;height:11px;background:#26201a;border:2px solid #555;border-radius:50%;
+  animation-duration:.68s;
+}
+.fx-fly.cannonball{
+  width:16px;height:16px;background:#181512;border:2px solid #444;border-radius:50%;
+  box-shadow:0 0 8px #000;animation-duration:.8s;
+}
+.fx-dmg{
+  font-size:15px;font-weight:bold;color:#ffd5cd;z-index:6;
+  text-shadow:0 1px 3px #000;animation:floatUp .95s ease-out forwards;
+}
+.fx-dmg.crit{font-size:21px;color:#ffd24a;}
+.fx-dmg.heal{color:#9fdf9f;}
+@keyframes floatUp{to{translate:0 -30px;opacity:0;}}
+.fx-text{
+  font-size:13.5px;letter-spacing:2px;color:#e8e2d0;
+  background:rgba(12,16,26,.75);padding:3px 9px;border-radius:6px;
+  animation:warnPulse 1.1s ease-out forwards;white-space:nowrap;z-index:6;
+}
+.fx-text.warn{color:#ff9d8d;border:1px solid #7e2f35;}
+.fx-text.miss{color:#9aa3b2;}
+.fx-text.info{color:#9fc6e8;}
+@keyframes warnPulse{0%{transform:scale(.6);opacity:0;}15%{transform:scale(1.08);opacity:1;}30%{transform:scale(1);}80%{opacity:1;}100%{opacity:0;}}
+.fx-flash{font-size:19px;color:#ffd27e;animation:flashPop .32s ease-out forwards;}
+@keyframes flashPop{0%{transform:scale(.3);opacity:1;}100%{transform:scale(1.5);opacity:0;}}
+.fx-smoke{
+  width:17px;height:17px;border-radius:50%;
+  background:radial-gradient(circle,rgba(207,214,228,.5),transparent 70%);
+  animation:smokeUp .85s ease-out forwards;
+}
+.fx-smoke.big{width:34px;height:34px;}
+@keyframes smokeUp{to{translate:0 -22px;transform:scale(1.9);opacity:0;}}
+.fx-burst{font-size:25px;animation:burstPop .55s ease-out forwards;z-index:5;}
+.fx-burst.big{font-size:38px;}
+@keyframes burstPop{0%{transform:scale(.3);opacity:1;}60%{transform:scale(1.25);opacity:1;}100%{transform:scale(1.5);opacity:0;}}
+.fx-spark{font-size:13px;animation:floatUp .72s ease-out forwards;}
+.fx-shield{font-size:30px;animation:shieldIn .28s ease-out;filter:drop-shadow(0 0 7px #7eb8ff);z-index:5;}
+@keyframes shieldIn{from{transform:scale(.3);opacity:0;}}
+.fx-stun{font-size:20px;animation:stunSpin 1.1s linear infinite;}
+@keyframes stunSpin{50%{transform:rotate(12deg) scale(1.15);}}
+/* バトルUI */
+.b-bars{display:flex;flex-direction:column;gap:5px;}
+.b-barrow{display:flex;align-items:center;gap:8px;}
+.b-side{font-size:11px;color:var(--muted);width:18px;flex-shrink:0;}
+.b-barwrap{flex:1;}
+.b-recruit{
+  display:flex;gap:14px;align-items:flex-start;
+  background:rgba(216,178,92,.07);border:1px solid var(--gold-dim);
+  border-radius:10px;padding:12px;
+}
+.b-recruit-name{font-size:17px;letter-spacing:1px;}
+.b-recruit-msg{font-size:13px;color:var(--gold);margin:3px 0 6px;}
+.b-bio{font-size:12px;color:var(--muted);line-height:1.7;}
+/* ===== v3: 似顔絵・武将詳細 ===== */
+.portrait{display:block;border-radius:6px;}
+.prep-enemy{display:flex;gap:12px;align-items:center;text-align:left;}
+.prep-info{flex:1;}
+.prep-port{flex-shrink:0;}
+.z-chip.own{cursor:pointer;display:inline-flex;align-items:center;gap:7px;padding:3px 9px 3px 4px;}
+.z-chip.own:hover{border-color:var(--gold);background:#243049;}
+.z-thumb{flex-shrink:0;display:flex;}
+.z-cinfo{display:inline-flex;gap:6px;align-items:baseline;flex-wrap:wrap;}
+.lord-modal{display:flex;gap:16px;align-items:flex-start;margin-bottom:8px;}
+.lm-port{flex-shrink:0;}
+.lm-info{flex:1;min-width:0;}
+.lm-name{font-size:19px;letter-spacing:2px;margin-bottom:4px;}
+.lm-name span:first-child{font-size:12px;}
+.lm-sub{font-size:12px;color:var(--muted);margin-bottom:6px;}
+.lm-stats{font-size:13.5px;color:var(--text);margin-bottom:8px;}
+.lm-stats small{color:var(--muted);}
+.lm-bio{
+  font-size:13px;line-height:1.8;color:#cfc9b8;
+  border-top:1px dashed var(--border);padding-top:8px;
+}
+
 @media (max-width:600px){
   #topbar h1{font-size:16px;}
   #hud{font-size:11px;gap:8px;}
   .region-label{font-size:20px;}
   #modebar{max-width:60%;}
+  .b-stage{height:128px;}
+  .bs-unit{font-size:16px;}
+  .bs-unit.tono{font-size:18px;}
+  .lord-modal{flex-direction:column;align-items:center;text-align:center;}
+  .lm-bio{text-align:left;}
 }
