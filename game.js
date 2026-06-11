@@ -796,165 +796,336 @@ function strHash(s){
   for(let i=0;i<s.length;i++){ h=((h<<5)+h+s.charCodeAt(i))|0; }
   return Math.abs(h);
 }
+let PORTRAIT_SEQ=0;
+function hexShade(c,f){
+  const n=parseInt(c.slice(1),16);
+  return 'rgb('+Math.round(((n>>16)&255)*f)+','+Math.round(((n>>8)&255)*f)+','+Math.round((n&255)*f)+')';
+}
 function portraitSVG(lord, castle, size){
   size = size||96;
   const o = (typeof PORTRAIT_OVR!=='undefined' && PORTRAIT_OVR[lord.n]) || {};
   const h = strHash(lord.n);
   const pick = (arr,salt)=>arr[Math.floor(h/Math.pow(3,salt))%arr.length];
+  const uid = 'pg'+(PORTRAIT_SEQ++)+'_';
   const unit = castle ? unitOf(castle,lord) : 'yari';
   const tier = lord.t||1;
-  // スタイル決定
   let style = o.style || '';
   if(!style && o.head==='monk') style='monk';
   if(!style && unit==='shinobi') style='shinobi';
   if(!style) style='busho';
   const elder = !!o.elder;
-  const skin = style==='court' ? '#efe7df' : pick(['#e9c9a3','#dcb288','#c89a6f'],1);
-  const skinD = '#00000022';
-  const armors = [['#8c3232','#5e1f1f'],['#2e4a6b','#1d3145'],['#3c5a3a','#27402a'],['#5a3e6b','#3c2849'],['#6b5a2e','#473c1c'],['#33333d','#1f1f29']];
-  let armor = pick(armors,2);
-  if(o.armorC) armor=[o.armorC, '#00000055'];
-  const hairC = elder ? '#9a9a98' : '#26221f';
+  const skins = [['#f0d2ac','#d2a276'],['#e6c096','#c4915f'],['#d6a87a','#ad7c50']];
+  const skin = style==='court' ? ['#f1e7d8','#d8c5ab'] : pick(skins,1);
+  // 札板色と縅（おどし）紐色
+  const armors = [['#7e2a2a','#e0b95e'],['#2e4a6b','#c9a86a'],['#3c5a3a','#d8b25c'],['#4a3c5e','#c98a96'],['#5e4d28','#e0c878'],['#26262e','#c43a3a']];
+  let plate = pick(armors,2);
+  if(o.armorC) plate=[o.armorC, o.laceC||'#d8b25c'];
+  const hairC = elder ? '#a8a5a0' : '#221d19';
   const gold = '#d8b25c';
-  const metal = pick(['#2c2c34','#3a322a','#33282e'],3);
-  const beard = o.beard!==undefined ? o.beard : (style==='female'||style==='femaleW'||style==='page'||style==='court') ? 'none' : pick(['none','thin','goatee','full','none'],4);
-  const beardC = (beard==='fullGray'||beard==='goateeGray'||elder) ? '#b9b9b6' : '#2a241f';
-  const fierce = (lord.b||50)>=78;
-  const eyeStyle = o.eyes || pick(['narrow','almond','narrow'],5);
+  const metals = [['#565664','#23232b'],['#4e4438','#221c14'],['#483c4c','#1d1722']];
+  const metal = pick(metals,3);
+  const beard = o.beard!==undefined ? o.beard : (style==='female'||style==='femaleW'||style==='page'||style==='court'||style==='shinobi') ? 'none' : pick(['none','thin','goatee','full','none','thin'],4);
+  const grayB = (beard==='fullGray'||beard==='goateeGray'||elder);
+  const bd = grayB ? '#b5b2ac' : '#241c15';
+  const fierce = (lord.b||50)>=75 && style!=='female' && style!=='femaleW' && style!=='court' && style!=='page';
+  const eyeStyle = o.eyes || pick(['narrow','almond','narrow','almond'],5);
   const P=[];
-  P.push('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" width="'+size+'" height="'+(size*1.2)+'" class="portrait">');
-  // 背景・額装
-  P.push('<rect x="2" y="2" width="96" height="116" rx="7" fill="#1c2336"/>');
+  P.push('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" width="'+size+'" height="'+Math.round(size*1.2)+'" class="portrait">');
+  // ---- 定義 ----
+  const bgStops = tier>=4
+    ? '<stop offset="0%" stop-color="#c9a44e"/><stop offset="55%" stop-color="#aa8338"/><stop offset="100%" stop-color="#7c5f28"/>'
+    : '<stop offset="0%" stop-color="#28324e"/><stop offset="100%" stop-color="#131927"/>';
+  P.push('<defs>'
+    +'<radialGradient id="'+uid+'sk" cx="46%" cy="38%" r="75%"><stop offset="0%" stop-color="'+skin[0]+'"/><stop offset="100%" stop-color="'+skin[1]+'"/></radialGradient>'
+    +'<linearGradient id="'+uid+'mt" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="'+metal[0]+'"/><stop offset="100%" stop-color="'+metal[1]+'"/></linearGradient>'
+    +'<linearGradient id="'+uid+'pl" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="'+plate[0]+'"/><stop offset="100%" stop-color="'+hexShade(plate[0],0.45)+'"/></linearGradient>'
+    +'<linearGradient id="'+uid+'gd" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#f2d57c"/><stop offset="100%" stop-color="#ad893a"/></linearGradient>'
+    +'<linearGradient id="'+uid+'bg" x1="0" y1="0" x2="0" y2="1">'+bgStops+'</linearGradient>'
+    +'<linearGradient id="'+uid+'vg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="0.38"/></linearGradient>'
+    +'</defs>');
+  // ---- 背景（大名以上は金屏風） ----
+  P.push('<rect x="2" y="2" width="96" height="116" rx="7" fill="url(#'+uid+'bg)"/>');
+  if(tier>=4){
+    let lines='';
+    for(let y=8;y<116;y+=5.5) lines+='M4,'+y+' H96 ';
+    P.push('<path d="'+lines+'" stroke="#00000010" stroke-width="0.8"/>');
+    P.push('<path d="M2,23 Q16,18 30,23 T58,23 T86,23 T98,22 L98,30 Q82,35 64,30 T34,30 T2,29 Z" fill="#ffffff16"/>');
+    P.push('<path d="M2,97 Q20,92 40,97 T78,97 T98,96 L98,105 Q78,110 56,105 T20,105 T2,104 Z" fill="#00000018"/>');
+  }else{
+    P.push('<path d="M2,28 Q18,23 34,28 T66,28 T98,27 L98,34 Q80,39 60,34 T24,34 T2,33 Z" fill="#ffffff08"/>');
+  }
   if(tier===5){
     for(let i=0;i<12;i++){
       const a=i*30*Math.PI/180;
-      P.push('<line x1="50" y1="52" x2="'+(50+Math.cos(a)*70)+'" y2="'+(52+Math.sin(a)*70)+'" stroke="'+gold+'" stroke-width="3" opacity="0.10"/>');
+      P.push('<line x1="50" y1="48" x2="'+(50+Math.cos(a)*74).toFixed(1)+'" y2="'+(48+Math.sin(a)*74).toFixed(1)+'" stroke="#fff3cf" stroke-width="3.5" opacity="0.09"/>');
     }
   }
-  if(o.extra==='lightning') P.push('<path d="M16,12 L24,26 L18,26 L27,42" stroke="'+gold+'" stroke-width="2.5" fill="none" opacity="0.8"/>');
-  // 胴体（甲冑 or 着物）
+  if(o.extra==='lightning') P.push('<path d="M14,9 L24,25 L17,25 L28,44" stroke="#ffe9a8" stroke-width="2.6" fill="none" opacity="0.7" stroke-linejoin="round"/>');
+  // ---- 後方要素（後ろ髪・錣・薙刀） ----
   if(style==='female'||style==='femaleW'){
-    // 後ろ髪
-    P.push('<path d="M29,42 Q26,18 50,16 Q74,18 71,42 L74,96 Q62,104 50,104 Q38,104 26,96 Z" fill="'+hairC+'"/>');
-    // 着物の襟
-    P.push('<path d="M16,120 Q18,92 38,84 L50,96 L62,84 Q82,92 84,120 Z" fill="'+(o.style==='femaleW'?'#5a3e6b':'#8c3232')+'"/>');
-    P.push('<path d="M38,84 L50,96 L62,84 L58,82 L50,90 L42,82 Z" fill="#e8e2d0"/>');
+    if(style==='femaleW') P.push('<path d="M70,118 L87,55" stroke="#5e4324" stroke-width="2.6"/><path d="M87,55 Q92,45 87,38" stroke="#c9ccd8" stroke-width="3.4" fill="none"/>');
+    P.push('<path d="M29.5,42 Q26,17 50,15 Q74,17 70.5,42 L73.5,98 Q62,106 50,106 Q38,106 26.5,98 Z" fill="'+hairC+'"/>');
+    P.push('<path d="M33,30 Q50,21 67,30" stroke="#ffffff18" stroke-width="2.6" fill="none"/>');
+  }
+  if(style==='busho'){
+    P.push('<path d="M33,38 Q21,46 23.5,63 L34,58 Q29.5,48 35,40 Z" fill="url(#'+uid+'pl)" stroke="#00000044" stroke-width="0.8"/>');
+    P.push('<path d="M67,38 Q79,46 76.5,63 L66,58 Q70.5,48 65,40 Z" fill="url(#'+uid+'pl)" stroke="#00000044" stroke-width="0.8"/>');
+    P.push('<path d="M26,52 L33.5,49.5 M74,52 L66.5,49.5" stroke="'+plate[1]+'" stroke-width="1.4" opacity="0.85"/>');
+  }
+  // ---- 首 ----
+  P.push('<path d="M44,64 H56 L57.5,82 H42.5 Z" fill="url(#'+uid+'sk)"/>');
+  P.push('<path d="M44,64 H56 L55.2,72 Q50,75 44.8,72 Z" fill="#00000028"/>');
+  // ---- 体 ----
+  if(style==='female'||style==='femaleW'){
+    const kim=pick([['#7e2a3a','#3c2849'],['#2e4a6b','#6b2a4a'],['#5a3e6b','#7e2a2a']],8);
+    P.push('<path d="M14,120 Q17,90 38,82 L50,96 L62,82 Q83,90 86,120 Z" fill="'+kim[0]+'"/>');
+    P.push('<path d="M20,120 Q24,98 38,88 L50,102 L62,88 Q76,98 80,120 Z" fill="'+kim[1]+'" opacity="0.5"/>');
+    P.push('<path d="M38,82 L50,96 L62,82 L58.5,79.5 L50,89 L41.5,79.5 Z" fill="#ece5d2"/>');
+    P.push('<path d="M40.5,80.5 L50,91 L59.5,80.5" stroke="#a3333a" stroke-width="2" fill="none"/>');
+    if(style==='femaleW'){
+      P.push('<path d="M38,90 H62 L59.5,102 H40.5 Z" fill="url(#'+uid+'pl)" stroke="#00000044" stroke-width="0.7"/>');
+      P.push('<path d="M40,94.5 H60 M40.7,98.5 H59.3" stroke="'+plate[1]+'" stroke-width="2" stroke-dasharray="2.6 2"/>');
+    }
   }else if(style==='court'||style==='page'||style==='monk'){
-    P.push('<path d="M14,120 L14,102 Q16,88 34,84 L46,80 H54 L66,84 Q84,88 86,102 L86,120 Z" fill="'+(style==='monk'?'#4a4438':'#3a3a55')+'"/>');
-    P.push('<path d="M42,82 L50,94 L58,82" stroke="#e8e2d0" stroke-width="3" fill="none"/>');
+    P.push('<path d="M13,120 L14.5,101 Q17,87 33,82 L45,77.5 H55 L67,82 Q83,87 85.5,101 L87,120 Z" fill="'+(style==='monk'?'#403b30':'#34344e')+'"/>');
+    P.push('<path d="M41,79 L50,92 L59,79 L55.5,77 L50,84.5 L44.5,77 Z" fill="#ece5d2"/>');
+    if(style==='monk'){
+      P.push('<path d="M15,120 L66,80 L75,90 L31,120 Z" fill="#6b5a2e"/>');
+      P.push('<path d="M22,113 L70,75 M27,117 L74,80" stroke="#00000026" stroke-width="1.2"/>');
+      P.push('<circle cx="63" cy="92" r="2.6" fill="url(#'+uid+'gd)"/>');
+    }
   }else{
-    // 甲冑
-    P.push('<path d="M14,120 L14,102 Q16,88 34,84 L44,80 H56 L66,84 Q84,88 86,102 L86,120 Z" fill="'+armor[0]+'"/>');
-    P.push('<ellipse cx="22" cy="96" rx="13" ry="11" fill="'+armor[0]+'" stroke="'+armor[1]+'" stroke-width="2"/>');
-    P.push('<ellipse cx="78" cy="96" rx="13" ry="11" fill="'+armor[0]+'" stroke="'+armor[1]+'" stroke-width="2"/>');
-    P.push('<path d="M30,98 H70 M28,106 H72 M27,114 H73" stroke="'+armor[1]+'" stroke-width="2.5"/>');
-    P.push('<path d="M50,86 V120" stroke="'+gold+'" stroke-width="1.6" opacity="0.5"/>');
+    // 当世具足
+    P.push('<path d="M13,120 L14,101 Q16,87 31,82 L43,77.5 H57 L69,82 Q84,87 86,101 L87,120 Z" fill="url(#'+uid+'mt)" stroke="#00000055" stroke-width="0.8"/>');
+    if(style==='shinobi'){
+      P.push('<path d="M13,120 L14,101 Q16,87 31,82 L43,77.5 H57 L69,82 Q84,87 86,101 L87,120 Z" fill="#23232b" opacity="0.85"/>');
+      P.push('<path d="M30,93 H70 M27,103 H73 M26,113 H74" stroke="#3c3c4a" stroke-width="1.2"/>');
+      P.push('<path d="M43,79 L57,93 M57,79 L43,93" stroke="#3c3c4a" stroke-width="1.6"/>');
+      for(let i=0;i<14;i++) P.push('<circle cx="'+(32+(i%7)*6)+'" cy="'+(96+Math.floor(i/7)*10)+'" r="0.7" fill="#52525e"/>');
+    }else{
+      // 大袖（肩鎧）4段
+      for(const sgn of [-1,1]){
+        const cx = sgn<0 ? 22 : 78;
+        P.push('<g transform="rotate('+(sgn*-9)+' '+cx+' 94)">');
+        P.push('<rect x="'+(cx-14)+'" y="79.6" width="28" height="2.6" rx="1.3" fill="url(#'+uid+'gd)"/>');
+        for(let i=0;i<4;i++){
+          const y=82+i*7.4;
+          P.push('<rect x="'+(cx-14)+'" y="'+y+'" width="28" height="6.8" rx="2.2" fill="url(#'+uid+'pl)" stroke="#00000044" stroke-width="0.7"/>');
+          P.push('<path d="M'+(cx-11)+','+(y+2)+' H'+(cx+11)+'" stroke="'+plate[1]+'" stroke-width="1.8" stroke-dasharray="2.4 2.1" opacity="0.95"/>');
+        }
+        P.push('</g>');
+      }
+      // 胸板
+      P.push('<path d="M36,79 H64 L61.5,92 H38.5 Z" fill="url(#'+uid+'pl)" stroke="#00000055" stroke-width="0.8"/>');
+      P.push('<path d="M36,79.7 H64" stroke="url(#'+uid+'gd)" stroke-width="1.6"/>');
+      // 胴の縅（段）
+      for(const y of [96,103,110,116]){
+        P.push('<path d="M30,'+(y-3.7)+' H70" stroke="#00000050" stroke-width="1"/>');
+        P.push('<path d="M29,'+y+' H71" stroke="'+plate[1]+'" stroke-width="4" stroke-dasharray="3 2.4" opacity="0.92"/>');
+      }
+      // 茱萸・胸紐
+      P.push('<circle cx="41" cy="84" r="1.7" fill="url(#'+uid+'gd)"/><circle cx="59" cy="84" r="1.7" fill="url(#'+uid+'gd)"/>');
+      P.push('<path d="M41,84 L46.5,90 M59,84 L53.5,90" stroke="#a3333a" stroke-width="1.3"/>');
+      // 喉輪
+      P.push('<path d="M42,75.5 Q50,81 58,75.5 L58,79.5 Q50,85.5 42,79.5 Z" fill="url(#'+uid+'pl)" stroke="#00000044" stroke-width="0.7"/>');
+    }
   }
-  // 首・顔
-  P.push('<path d="M44,68 H56 V84 H44 Z" fill="'+skin+'"/><path d="M44,68 H56 V73 Q50,76 44,73 Z" fill="'+skinD+'"/>');
-  const faceRx = o.face==='slim' ? 15 : pick([16,17,18],6);
-  P.push('<ellipse cx="33" cy="58" rx="3" ry="4.5" fill="'+skin+'"/><ellipse cx="67" cy="58" rx="3" ry="4.5" fill="'+skin+'"/>');
-  P.push('<ellipse cx="50" cy="56" rx="'+faceRx+'" ry="19" fill="'+skin+'"/>');
-  if(elder) P.push('<path d="M38,64 q3,2 6,1 M62,64 q-3,2 -6,1 M42,44 h16" stroke="#00000033" stroke-width="1.2" fill="none"/>');
-  // 髭（口より先に描く）
-  if(beard==='full'||beard==='fullGray'){
-    P.push('<path d="M35,60 Q34,86 50,88 Q66,86 65,60 Q62,74 50,75 Q38,74 35,60 Z" fill="'+beardC+'"/>');
-  }else if(beard==='goatee'||beard==='goateeGray'){
-    P.push('<path d="M44,76 Q50,90 56,76 Q50,80 44,76 Z" fill="'+beardC+'"/>');
+  // ---- 顔 ----
+  P.push('<ellipse cx="34.5" cy="52" rx="3" ry="4.4" fill="url(#'+uid+'sk)"/><ellipse cx="65.5" cy="52" rx="3" ry="4.4" fill="url(#'+uid+'sk)"/>');
+  P.push('<path d="M35.5,46 q-1.2,3.2 0,6.4" stroke="#00000022" stroke-width="0.9" fill="none"/><path d="M64.5,46 q1.2,3.2 0,6.4" stroke="#00000022" stroke-width="0.9" fill="none"/>');
+  const faceW = o.face==='slim' ? 13.2 : pick([14,14.8,15.6],6);
+  P.push('<path d="M'+(50-faceW)+',38 L'+(50-faceW)+',50 Q'+(50-faceW+0.6)+',60 '+(50-faceW+7)+',67 Q'+(50-3)+',71.6 50,71.6 Q'+(50+3)+',71.6 '+(50+faceW-7)+',67 Q'+(50+faceW-0.6)+',60 '+(50+faceW)+',50 L'+(50+faceW)+',38 Q'+(50+faceW)+',27.5 50,26.6 Q'+(50-faceW)+',27.5 '+(50-faceW)+',38 Z" fill="url(#'+uid+'sk)" stroke="#00000026" stroke-width="0.8"/>');
+  // 頬の陰影
+  P.push('<path d="M'+(50-faceW+1.5)+',53 Q'+(50-faceW+4)+',61 '+(50-faceW+8.5)+',64.5 Q'+(50-faceW+4.5)+',62.5 '+(50-faceW+1.8)+',56 Z" fill="#00000013"/>');
+  P.push('<path d="M'+(50+faceW-1.5)+',53 Q'+(50+faceW-4)+',61 '+(50+faceW-8.5)+',64.5 Q'+(50+faceW-4.5)+',62.5 '+(50+faceW-1.8)+',56 Z" fill="#00000013"/>');
+  if(elder) P.push('<path d="M40.5,59.5 Q42.5,63.5 46,65.5 M59.5,59.5 Q57.5,63.5 54,65.5 M38,55 q1.6,1.4 3.2,1.6 M62,55 q-1.6,1.4 -3.2,1.6" stroke="#00000024" stroke-width="1.1" fill="none"/>');
+  // ---- 髭（口より先） ----
+  if(style!=='shinobi'){
+    if(beard==='full'||beard==='fullGray'){
+      P.push('<path d="M36.4,51 Q35,67 41.6,73.6 Q45.6,78.2 50,78.4 Q54.4,78.2 58.4,73.6 Q65,67 63.6,51 Q62.4,63 56.8,67.8 Q53.4,70.6 50,70.6 Q46.6,70.6 43.2,67.8 Q37.6,63 36.4,51 Z" fill="'+bd+'"/>');
+      P.push('<path d="M42,69.5 q2.2,2.4 4.4,3 M58,69.5 q-2.2,2.4 -4.4,3 M50,71.6 V77" stroke="#ffffff14" stroke-width="1" fill="none"/>');
+      P.push('<path d="M48.3,62.8 Q42,62 38.6,65.2 Q43,67 48.2,64.8 Z" fill="'+bd+'"/><path d="M51.7,62.8 Q58,62 61.4,65.2 Q57,67 51.8,64.8 Z" fill="'+bd+'"/>');
+    }else if(beard==='goatee'||beard==='goateeGray'){
+      P.push('<path d="M45.2,68.6 Q50,70 54.8,68.6 Q53.6,77 50,79.2 Q46.4,77 45.2,68.6 Z" fill="'+bd+'"/>');
+      P.push('<path d="M48.4,62.9 Q44.4,62.3 41.8,63.9 M51.6,62.9 Q55.6,62.3 58.2,63.9" stroke="'+bd+'" stroke-width="1.7" fill="none" stroke-linecap="round"/>');
+    }else if(beard==='thin'){
+      P.push('<path d="M48.5,63.1 Q44,62.4 41.4,63.6 M51.5,63.1 Q56,62.4 58.6,63.6" stroke="'+bd+'" stroke-width="1.6" fill="none" stroke-linecap="round"/>');
+    }
   }
-  // 眉・目・鼻・口
-  if(style==='court'){
-    P.push('<ellipse cx="42" cy="44" rx="3.4" ry="1.8" fill="#3a3433"/><ellipse cx="58" cy="44" rx="3.4" ry="1.8" fill="#3a3433"/>');
-    P.push('<path d="M39,57 h7 M54,57 h7" stroke="#2a2422" stroke-width="1.6"/>');
-    P.push('<path d="M47,73 q3,2.4 6,0" stroke="#a33" stroke-width="2.6" fill="none"/>');
-  }else{
-    const browY = fierce? 'M35,53 L46,48 M65,53 L54,48' : (style==='female'? 'M37,50 q5,-2.5 9,0 M54,50 q5,-2.5 9,0' : 'M36,50 h10 M54,50 h10');
-    P.push('<path d="'+browY+'" stroke="'+(elder?'#b9b9b6':'#2a241f')+'" stroke-width="'+(style==='female'?1.4:2.6)+'" fill="none"/>');
-    if(eyeStyle==='narrow') P.push('<path d="M38,57 h8 M54,57 h8" stroke="#1c1714" stroke-width="2"/>');
-    else if(eyeStyle==='sharp') P.push('<path d="M38,58 l8,-2 M62,58 l-8,-2" stroke="#1c1714" stroke-width="2.2"/>');
-    else if(eyeStyle==='snake') P.push('<path d="M38,57 h8 M54,57 h8" stroke="#1c1714" stroke-width="1.6"/><circle cx="42" cy="57" r="1" fill="#1c1714"/><circle cx="58" cy="57" r="1" fill="#1c1714"/>');
-    else P.push('<ellipse cx="42" cy="57" rx="2.8" ry="2" fill="#1c1714"/><ellipse cx="58" cy="57" rx="2.8" ry="2" fill="#1c1714"/>');
-    P.push('<path d="M50,58 L48.4,66 q1.6,1.6 3.2,0" stroke="'+skinD.replace('22','44')+'" stroke-width="1.6" fill="none"/>');
-    const mouth = style==='female' ? '<path d="M46.5,74 q3.5,2.4 7,0" stroke="#a34" stroke-width="2" fill="none"/>'
-      : fierce ? '<path d="M43,76 q7,-3.6 14,0" stroke="#241d18" stroke-width="2.2" fill="none"/>'
-      : '<path d="M43.5,75 h13" stroke="#241d18" stroke-width="2.2"/>';
-    P.push(mouth);
-    if(beard==='thin') P.push('<path d="M43,70 q7,3 14,0" stroke="'+beardC+'" stroke-width="1.6" fill="none"/>');
+  // ---- 眉・目 ----
+  function browSVG(sgn){
+    const cx = sgn<0 ? 42.6 : 57.4;
+    if(style==='female'||style==='femaleW') return '<path d="M'+(cx+sgn*4.6)+',47.4 Q'+cx+',45 '+(cx-sgn*4)+',46.6" stroke="'+hairC+'" stroke-width="1.3" fill="none"/>';
+    if(style==='court') return '<ellipse cx="'+(cx+sgn*0.5)+'" cy="42.6" rx="3.5" ry="1.7" fill="#3a3430"/>';
+    const c = grayB ? '#b5b2ac' : '#241c15';
+    if(fierce) return '<path d="M'+(cx+sgn*6.2)+',44.8 Q'+(cx+sgn*1)+',44.2 '+(cx-sgn*5)+',47.6 L'+(cx-sgn*4.4)+',49.6 Q'+(cx+sgn*0.5)+',46.8 '+(cx+sgn*5.2)+',47 Z" fill="'+c+'"/>';
+    return '<path d="M'+(cx+sgn*6)+',48 Q'+cx+',44.8 '+(cx-sgn*4.6)+',46.4 L'+(cx-sgn*4.3)+',48.3 Q'+cx+',47 '+(cx+sgn*5)+',49.8 Z" fill="'+c+'"/>';
   }
-  if(o.scar) P.push('<path d="M58,46 L66,60" stroke="#8c3a32" stroke-width="2"/>');
+  function eyeSVG(sgn){
+    const cx = sgn<0 ? 43 : 57;
+    let s='';
+    const narrow = (eyeStyle==='narrow'||eyeStyle==='snake'||eyeStyle==='sharp');
+    if(narrow){
+      const oy = eyeStyle==='sharp' ? 49.6 : 50.9;
+      const iy = eyeStyle==='sharp' ? 51.8 : 50.9;
+      s+='<path d="M'+(cx+sgn*5)+','+oy+' Q'+cx+','+(fierce?49.2:48.6)+' '+(cx-sgn*5)+','+iy+'" stroke="#19120d" stroke-width="1.9" fill="none" stroke-linecap="round"/>';
+      s+='<path d="M'+(cx+sgn*3.6)+',52.6 Q'+cx+',53.6 '+(cx-sgn*3.6)+',52.6" stroke="#00000026" stroke-width="0.9" fill="none"/>';
+      if(eyeStyle==='snake') s+='<path d="M'+cx+',49.9 V52.1" stroke="#19120d" stroke-width="1.1"/>';
+    }else{
+      s+='<path d="M'+(cx-5)+',51 Q'+cx+',48.2 '+(cx+5)+',51 Q'+cx+',53.4 '+(cx-5)+',51 Z" fill="#f2e9d8"/>';
+      s+='<circle cx="'+(cx+sgn*0.3)+'" cy="50.8" r="1.95" fill="#33241a"/>';
+      s+='<circle cx="'+(cx+sgn*0.3)+'" cy="50.8" r="0.85" fill="#150f0a"/>';
+      s+='<circle cx="'+(cx+sgn*0.3-0.6)+'" cy="50" r="0.5" fill="#ffffff" opacity="0.7"/>';
+      s+='<path d="M'+(cx+sgn*5.4)+','+(fierce?49:50.4)+' Q'+cx+',47.6 '+(cx-sgn*5.4)+','+(fierce?51.6:50.4)+'" stroke="#19120d" stroke-width="1.8" fill="none" stroke-linecap="round"/>';
+      s+='<path d="M'+(cx+sgn*4)+',52.9 Q'+cx+',53.9 '+(cx-sgn*4)+',52.7" stroke="#00000022" stroke-width="0.8" fill="none"/>';
+    }
+    return s;
+  }
+  P.push(browSVG(-1)+browSVG(1));
+  P.push(eyeSVG(-1)+eyeSVG(1));
+  // ---- 鼻 ----
+  P.push('<path d="M48.7,52.5 Q47.7,57.5 47.1,60.1" stroke="#00000020" stroke-width="1.5" fill="none"/>');
+  P.push('<path d="M47.1,60.3 Q47.7,62.5 50,62.6 Q52.3,62.5 52.9,60.3" stroke="#6b452f55" stroke-width="1.3" fill="none"/>');
+  P.push('<path d="M47.7,61.8 q-1.1,-0.2 -1.5,-1.1 M52.3,61.8 q1.1,-0.2 1.5,-1.1" stroke="#4a2e1e88" stroke-width="1" fill="none"/>');
+  // ---- 口 ----
+  if(style!=='shinobi'){
+    if(style==='female'||style==='femaleW'){
+      P.push('<path d="M46.6,65.9 Q50,69.1 53.4,65.9 Q50,67.2 46.6,65.9 Z" fill="#b03a44"/>');
+      P.push('<path d="M46.6,65.8 Q48.3,64.9 50,65.8 Q51.7,64.9 53.4,65.8" stroke="#8a2832" stroke-width="1" fill="none"/>');
+    }else if(style==='court'){
+      P.push('<path d="M47.4,65.6 Q50,67.4 52.6,65.6" stroke="#a3333a" stroke-width="2.2" fill="none"/>');
+    }else{
+      P.push('<path d="M44.6,66.4 Q50,'+(fierce?68.6:67.8)+' 55.4,66.4" stroke="#25160f" stroke-width="1.9" fill="none" stroke-linecap="round"/>');
+      if(fierce) P.push('<path d="M44.5,66.5 l-1.5,1.1 M55.5,66.5 l1.5,1.1" stroke="#25160f" stroke-width="1.3"/>');
+      P.push('<path d="M46.8,69.2 Q50,70.5 53.2,69.2" stroke="#00000022" stroke-width="1.1" fill="none"/>');
+    }
+  }
+  // ---- 傷・眼帯 ----
+  if(o.scar) P.push('<path d="M56.5,43.5 L64,58" stroke="#8c4438" stroke-width="1.8"/><path d="M56.8,47 l3,1 M58.6,50.6 l3,1 M60.4,54.2 l3,1" stroke="#8c4438" stroke-width="0.9"/>');
   if(o.eyepatch){
-    P.push('<ellipse cx="42" cy="57" rx="6" ry="5" fill="#181410"/><path d="M33,52 L64,44 M33,52 L62,66" stroke="#181410" stroke-width="1.6"/>');
+    P.push('<ellipse cx="43" cy="50.8" rx="6.6" ry="5.2" fill="#14100c" stroke="#000000" stroke-width="0.8"/>');
+    P.push('<path d="M36.6,48.4 L64.6,42.8 M36.8,53.4 L63.4,58.8" stroke="#14100c" stroke-width="1.5"/>');
   }
-  // 頭部（兜・頭巾など）
+  // ---- 頭部 ----
   const head = o.head || (style==='shinobi'?'shinobiHood': style==='monk'?'monk': style==='female'?'femaleHair': style==='femaleW'?'femaleBand': style==='court'?'eboshi': style==='page'?'pageHair':'kabuto');
   if(head==='kabuto'){
     const jingasa = tier<=2 && !o.crest && (h%10<3);
+    // 忍緒（あご紐）
+    P.push('<path d="M37.6,50 Q40,65 46.6,73.4 M62.4,50 Q60,65 53.4,73.4" stroke="#a3333a" stroke-width="1" fill="none" opacity="0.7"/>');
+    P.push('<circle cx="50" cy="76" r="1.1" fill="#a3333a"/><path d="M50,76.6 l-2.2,2.8 M50,76.6 l2.2,2.8" stroke="#a3333a" stroke-width="0.9"/>');
     if(jingasa){
-      P.push('<path d="M20,46 L50,26 L80,46 Z" fill="#8a7440" stroke="#5e4d28" stroke-width="1.6"/>');
-      P.push('<circle cx="50" cy="38" r="3" fill="'+gold+'"/>');
+      P.push('<path d="M50,20.5 L82,45.5 Q50,38.5 18,45.5 Z" fill="#6b5530" stroke="#473a1c" stroke-width="1.2"/>');
+      P.push('<path d="M50,20.5 L66,33 Q58,30.5 50,30.2 Q42,30.5 34,33 Z" fill="#ffffff14"/>');
+      P.push('<circle cx="50" cy="36.5" r="3" fill="url(#'+uid+'gd)"/>');
     }else{
-      P.push('<path d="M30,45 Q29,24 50,22 Q71,24 70,45 L66,42 H34 Z" fill="'+metal+'"/>');
-      P.push('<path d="M28,45 Q50,38 72,45 L70,49 Q50,42 30,49 Z" fill="'+metal+'" stroke="#00000044" stroke-width="1"/>');
-      P.push('<path d="M30,46 Q22,42 19,34 L27,38 Z M70,46 Q78,42 81,34 L73,38 Z" fill="'+metal+'"/>');
-      P.push('<path d="M33,28 Q50,20 67,28" stroke="#ffffff22" stroke-width="2" fill="none"/>');
-      P.push(crestSVG(o.crest || pick(['kuwagata','crescent','kuwagata','horns','sun'],7), gold));
+      // 鉢（筋兜）
+      P.push('<path d="M30.5,38.5 Q29,13 50,11 Q71,13 69.5,38.5 L66,36 Q50,29.5 34,36 Z" fill="url(#'+uid+'mt)" stroke="#00000055" stroke-width="0.8"/>');
+      P.push('<path d="M40,34.5 Q39.4,18 50,13 M60,34.5 Q60.6,18 50,13 M50,11.5 V29.5" stroke="#ffffff14" stroke-width="1.6" fill="none"/>');
+      for(let x=36;x<=64;x+=5.6) P.push('<circle cx="'+x+'" cy="33.6" r="0.75" fill="'+gold+'" opacity="0.9"/>');
+      // 眉庇
+      P.push('<path d="M29,41 Q50,33.5 71,41 L69,46.5 Q50,38.5 31,46.5 Z" fill="url(#'+uid+'mt)" stroke="#00000050" stroke-width="0.8"/>');
+      P.push('<path d="M31,46.2 Q50,38.3 69,46.2" stroke="'+gold+'" stroke-width="1.2" fill="none"/>');
+      // 吹返し
+      P.push('<path d="M31,36.5 Q19.5,38.5 17.5,49 Q25,51.5 32.5,46.5 Z" fill="url(#'+uid+'pl)" stroke="#00000044" stroke-width="0.7"/>');
+      P.push('<path d="M31,36.5 Q19.5,38.5 17.5,49" stroke="'+gold+'" stroke-width="1.1" fill="none"/><circle cx="24.6" cy="44" r="1" fill="url(#'+uid+'gd)"/>');
+      P.push('<path d="M69,36.5 Q80.5,38.5 82.5,49 Q75,51.5 67.5,46.5 Z" fill="url(#'+uid+'pl)" stroke="#00000044" stroke-width="0.7"/>');
+      P.push('<path d="M69,36.5 Q80.5,38.5 82.5,49" stroke="'+gold+'" stroke-width="1.1" fill="none"/><circle cx="75.4" cy="44" r="1" fill="url(#'+uid+'gd)"/>');
+      // 前立
+      P.push(crestSVG(o.crest || pick(['kuwagata','crescent','kuwagata','horns','sun'],7), uid));
     }
   }else if(head==='hood'){
-    P.push('<path d="M31,72 Q25,30 50,25 Q75,30 69,72 L62,60 Q62,44 50,44 Q38,44 38,60 Z" fill="#e8e4da" stroke="#c9c2b2" stroke-width="1.4"/>');
-    P.push('<path d="M38,60 Q38,42 50,42 Q62,42 62,60 L62,46 Q58,38 50,38 Q42,38 38,46 Z" fill="#e8e4da"/>');
-    P.push('<path d="M33,40 Q50,30 67,40" stroke="#c9c2b2" stroke-width="1.4" fill="none"/>');
+    P.push('<path d="M30.5,70 Q24.5,28 50,23.5 Q75.5,28 69.5,70 L62.5,57 Q63,43.5 50,43.4 Q37,43.5 37.5,57 Z" fill="#ece7da" stroke="#c6bca6" stroke-width="1.2"/>');
+    P.push('<path d="M36,34 Q50,26.5 64,34 M33.5,46 Q50,38 66.5,46 M32,58 Q40,52 37.8,57.5" stroke="#c6bca6" stroke-width="1.2" fill="none"/>');
   }else if(head==='shinobiHood'){
-    P.push('<path d="M31,70 Q27,26 50,23 Q73,26 69,70 L63,58 Q63,44 50,44 Q37,44 37,58 Z" fill="#23232b"/>');
-    P.push('<path d="M37,66 Q50,74 63,66 L63,78 Q50,86 37,78 Z" fill="#23232b"/>');
+    P.push('<path d="M36,55 Q50,60.5 64,55 L64,74 Q50,82 36,74 Z" fill="#1f1f26"/>');
+    P.push('<path d="M30.5,68 Q26.5,23 50,20.5 Q73.5,23 69.5,68 L63,56 Q63,42 50,42 Q37,42 37,56 Z" fill="#2a2a33"/>');
+    P.push('<path d="M34,38 Q50,30 66,38 M32.5,50 Q50,42 67.5,50" stroke="#00000055" stroke-width="1.2" fill="none"/>');
+    P.push('<path d="M38,57.5 Q50,62.5 62,57.5" stroke="#00000066" stroke-width="1" fill="none"/>');
   }else if(head==='bowl'){
-    P.push('<path d="M31,44 Q31,25 50,25 Q69,25 69,44 Z" fill="#a33326" stroke="#6e1f17" stroke-width="1.6"/>');
-    P.push('<path d="M31,44 H69 L66,48 H34 Z" fill="#6e1f17"/>');
+    P.push('<path d="M31.5,43 Q31.5,23.5 50,23.5 Q68.5,23.5 68.5,43 Z" fill="#a83326" stroke="#6e1f17" stroke-width="1.4"/>');
+    P.push('<path d="M36,30 Q42,25.5 50,25.4" stroke="#ffffff22" stroke-width="2" fill="none"/>');
+    P.push('<path d="M31.5,43 H68.5 L66,47.5 H34 Z" fill="#6e1f17"/>');
   }else if(head==='tallhat'){
-    P.push('<path d="M41,46 L44,7 L58,9 L60,46 Z" fill="#b8b8c0" stroke="#8a8a96" stroke-width="1.4"/>');
-    P.push('<circle cx="51" cy="14" r="3" fill="'+gold+'"/>');
+    P.push('<path d="M41.5,45 L44.8,7.5 Q50,4.5 56.5,8.5 L59.8,45 Z" fill="url(#'+uid+'mt)" stroke="#00000055" stroke-width="0.8"/>');
+    P.push('<path d="M45.5,40 L47.5,12" stroke="#ffffff16" stroke-width="1.8"/>');
+    P.push('<circle cx="51" cy="15.5" r="3.2" fill="#c43a3a"/>');
   }else if(head==='wild'){
-    P.push('<path d="M32,50 Q24,36 30,22 L38,32 L36,18 L46,28 L50,14 L54,28 L64,18 L62,32 L70,22 Q76,36 68,50 Q60,38 50,38 Q40,38 32,50 Z" fill="'+hairC+'"/>');
-    P.push('<rect x="33" y="42" width="34" height="5" rx="2" fill="#a33326"/>');
+    P.push('<path d="M32,50 Q23,36 29,20 L38,31 L36,16 L46,27 L50,12 L54,27 L64,16 L62,31 L71,20 Q77,36 68,50 Q60,37 50,37 Q40,37 32,50 Z" fill="'+hairC+'"/>');
+    P.push('<path d="M36,24 L40,30 M60,22 L57,29" stroke="#ffffff12" stroke-width="1.4"/>');
+    P.push('<rect x="33" y="41.5" width="34" height="5" rx="2" fill="#a83326"/><path d="M33,44 H67" stroke="#00000033" stroke-width="0.8"/>');
   }else if(head==='band'){
-    P.push('<path d="M32,48 Q31,28 50,26 Q69,28 68,48 Q60,38 50,38 Q40,38 32,48 Z" fill="'+hairC+'"/>');
-    P.push('<rect x="32" y="43" width="36" height="5.5" rx="2" fill="#e8e4da"/>');
+    P.push('<path d="M32,48 Q31,27 50,25 Q69,27 68,48 Q60,37.5 50,37.5 Q40,37.5 32,48 Z" fill="'+hairC+'"/>');
+    P.push('<rect x="32" y="42.5" width="36" height="5.5" rx="2" fill="#ece7da"/><path d="M32,45.2 H68" stroke="#00000018" stroke-width="0.8"/>');
+    P.push('<path d="M68,44 l6,-2.4 M68,46.5 l6,1.6" stroke="#ece7da" stroke-width="2"/>');
   }else if(head==='monk'){
-    P.push('<path d="M34,40 Q38,33 50,32 Q62,33 66,40" stroke="#ffffff22" stroke-width="3" fill="none"/>');
+    P.push('<ellipse cx="46" cy="34" rx="9" ry="5" fill="#ffffff12"/>');
   }else if(head==='eboshi'){
-    P.push('<path d="M40,44 L38,12 Q48,6 56,10 L58,28 L53,44 Z" fill="#1c1714"/>');
+    P.push('<path d="M40.5,41 L38.5,12.5 Q46,4.5 55,8.5 L57.5,28 L53.5,41 Z" fill="#16120e" stroke="#00000088" stroke-width="0.8"/>');
+    P.push('<path d="M42.5,36 L41.5,15" stroke="#ffffff10" stroke-width="1.6"/>');
+    P.push('<path d="M40.5,41 Q42,49 45,55 M55,41 Q54,49 52.5,55" stroke="#16120e" stroke-width="0.9" opacity="0.7"/>');
   }else if(head==='femaleHair'){
-    P.push('<path d="M31,48 Q29,24 50,22 Q71,24 69,48 Q62,36 50,36 Q38,36 31,48 Z" fill="'+hairC+'"/>');
-    P.push('<path d="M64,32 l10,-7 M70,36 l9,-3" stroke="'+gold+'" stroke-width="2"/>');
+    P.push('<path d="M30.5,48 Q28.5,22 50,20.5 Q71.5,22 69.5,48 Q61,34.5 50,34.5 Q39,34.5 30.5,48 Z" fill="'+hairC+'"/>');
+    P.push('<path d="M36,29 Q50,23.5 64,29" stroke="#ffffff1c" stroke-width="2.2" fill="none"/>');
+    P.push('<path d="M66,30 L78,21.5" stroke="url(#'+uid+'gd)" stroke-width="1.7"/><circle cx="78" cy="21.5" r="1.9" fill="url(#'+uid+'gd)"/><path d="M78,23.5 l1.2,4.2" stroke="url(#'+uid+'gd)" stroke-width="1.1"/>');
   }else if(head==='femaleBand'){
-    P.push('<path d="M31,48 Q29,24 50,22 Q71,24 69,48 Q62,36 50,36 Q38,36 31,48 Z" fill="'+hairC+'"/>');
-    P.push('<rect x="32" y="42" width="36" height="5" rx="2" fill="#e8e4da"/>');
+    P.push('<path d="M30.5,48 Q28.5,22 50,20.5 Q71.5,22 69.5,48 Q61,34.5 50,34.5 Q39,34.5 30.5,48 Z" fill="'+hairC+'"/>');
+    P.push('<rect x="32" y="42" width="36" height="5" rx="2" fill="#ece7da"/>');
+    P.push('<path d="M68,43.5 l6,-2.2 M68,45.8 l6,1.6" stroke="#ece7da" stroke-width="1.8"/>');
   }else if(head==='pageHair'){
-    P.push('<path d="M32,50 Q30,28 50,26 Q70,28 68,50 Q60,40 50,40 Q40,40 32,50 Z" fill="'+hairC+'"/>');
+    P.push('<path d="M32,50 Q30,27 50,25 Q70,27 68,50 Q60,39 50,39 Q40,39 32,50 Z" fill="'+hairC+'"/>');
+    P.push('<path d="M37,31 Q50,26 63,31" stroke="#ffffff14" stroke-width="2" fill="none"/>');
   }
-  // 装飾品
-  if(o.beads) P.push('<path d="M38,86 Q50,98 62,86" stroke="none" fill="none"/>'+[0,1,2,3,4,5,6].map(i=>{const t=i/6;const x=38+24*t;const y=86+Math.sin(Math.PI*t)*10;return '<circle cx="'+x+'" cy="'+y+'" r="2" fill="#6e5a3a"/>';}).join(''));
-  if(o.crossPend) P.push('<path d="M50,92 v12 M44,97 h12" stroke="'+gold+'" stroke-width="2.6"/>');
-  if(o.extra==='gunbai') P.push('<g transform="translate(80,100) rotate(-18)"><ellipse cx="0" cy="-8" rx="9" ry="11" fill="#8a5a2a" stroke="#5e3d1c" stroke-width="1.4"/><rect x="-1.4" y="2" width="2.8" height="12" fill="#5e3d1c"/></g>');
-  if(o.extra==='sword') P.push('<path d="M70,86 L88,64" stroke="#b8b8c0" stroke-width="3"/><circle cx="70" cy="86" r="3.4" fill="'+gold+'"/>');
-  // 額装枠
+  // ---- 装飾品 ----
+  if(o.beads){
+    let bs='';
+    for(let i=0;i<=7;i++){
+      const t=i/7, x=37+26*t, y=84+Math.sin(Math.PI*t)*11;
+      bs+='<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="2" fill="#6e5a3a" stroke="#473a22" stroke-width="0.5"/>';
+    }
+    P.push(bs);
+  }
+  if(o.crossPend) P.push('<path d="M50,90 v13 M44.5,95 h11" stroke="url(#'+uid+'gd)" stroke-width="2.8"/><path d="M50,90 v13 M44.5,95 h11" stroke="#00000044" stroke-width="0.8"/>');
+  if(o.extra==='gunbai') P.push('<g transform="translate(81,101) rotate(-18)"><ellipse cx="0" cy="-9" rx="9.5" ry="11.5" fill="#8a5a2a" stroke="#5e3d1c" stroke-width="1.3"/><ellipse cx="0" cy="-9" rx="6" ry="8" fill="none" stroke="#5e3d1c" stroke-width="0.8"/><rect x="-1.5" y="1.5" width="3" height="13" rx="1.4" fill="#5e3d1c"/></g>');
+  if(o.extra==='sword') P.push('<path d="M70,87 L89,63" stroke="#c9ccd8" stroke-width="3"/><path d="M70,87 L89,63" stroke="#ffffff44" stroke-width="1"/><circle cx="70" cy="87" r="3.2" fill="url(#'+uid+'gd)"/>');
+  // ---- 仕上げ ----
+  P.push('<rect x="2" y="56" width="96" height="62" rx="7" fill="url(#'+uid+'vg)"/>');
   P.push('<rect x="2" y="2" width="96" height="116" rx="7" fill="none" stroke="'+(TIER[tier].color)+'" stroke-width="2.4"/>');
-  if(tier===5) P.push('<rect x="6" y="6" width="88" height="108" rx="5" fill="none" stroke="'+gold+'" stroke-width="1" opacity="0.6"/>');
+  P.push('<rect x="3.6" y="3.6" width="92.8" height="112.8" rx="5.8" fill="none" stroke="#00000066" stroke-width="0.8"/>');
+  if(tier===5) P.push('<rect x="6" y="6" width="88" height="108" rx="5" fill="none" stroke="'+gold+'" stroke-width="1" opacity="0.65"/>');
   P.push('</svg>');
   return P.join('');
 }
-function crestSVG(kind, gold){
+function crestSVG(kind, uid){
+  const gd='url(#'+uid+'gd)', dk='#8a6d2c';
   switch(kind){
-    case 'crescent': return '<path d="M32,24 A20,20 0 0 1 68,24 A24,26 0 0 0 32,24 Z" fill="'+gold+'"/>';
-    case 'sun': return '<circle cx="50" cy="19" r="7" fill="'+gold+'"/>';
-    case 'rays': return '<g stroke="'+gold+'" stroke-width="2.4">'+[-40,-20,0,20,40].map(a=>'<line x1="50" y1="28" x2="'+(50+Math.sin(a*Math.PI/180)*18)+'" y2="'+(28-Math.cos(a*Math.PI/180)*18)+'"/>').join('')+'</g><circle cx="50" cy="28" r="3.4" fill="'+gold+'"/>';
-    case 'horns': return '<path d="M42,32 Q30,22 33,7 M58,32 Q70,22 67,7" stroke="#7c6a3c" stroke-width="4.4" fill="none"/>';
-    case 'antlers': return '<path d="M43,32 Q38,18 41,8 M41,20 L34,14 M57,32 Q62,18 59,8 M59,20 L66,14" stroke="'+gold+'" stroke-width="2.6" fill="none"/>';
-    case 'antlersBig': return '<path d="M42,32 Q34,16 38,2 M39,20 L30,14 M40,10 L33,5 M58,32 Q66,16 62,2 M61,20 L70,14 M60,10 L67,5" stroke="'+gold+'" stroke-width="3" fill="none"/>';
-    case 'ai': return '<circle cx="50" cy="18" r="8.6" fill="'+gold+'"/><text x="50" y="22" text-anchor="middle" font-size="11" font-weight="bold" fill="#1c2336" font-family="serif">愛</text>';
-    case 'fern': return '<path d="M50,32 Q40,18 33,22 M50,32 Q50,12 50,8 M50,32 Q60,18 67,22" stroke="'+gold+'" stroke-width="2.4" fill="none"/>';
-    case 'cross': return '<circle cx="50" cy="19" r="8" fill="none" stroke="'+gold+'" stroke-width="2"/><path d="M50,12 V26 M43,19 H57" stroke="'+gold+'" stroke-width="2.2"/>';
+    case 'crescent':
+      return '<path d="M27.5,21.5 A24.5,24.5 0 0 1 72.5,21.5 A30,30 0 0 0 27.5,21.5 Z" fill="'+gd+'" stroke="'+dk+'" stroke-width="0.8"/>';
+    case 'sun':
+      return '<circle cx="50" cy="17" r="8.2" fill="'+gd+'" stroke="'+dk+'" stroke-width="0.8"/><circle cx="50" cy="17" r="10.8" fill="none" stroke="'+dk+'" stroke-width="0.9" opacity="0.55"/>';
+    case 'rays':
+      return '<g fill="'+gd+'" stroke="'+dk+'" stroke-width="0.5">'+[-42,-21,0,21,42].map(a=>{
+        const r=a*Math.PI/180, x=50+Math.sin(r)*19, y=29-Math.cos(r)*19;
+        const px=50+Math.sin(r+0.18)*5.5, py=29-Math.cos(r+0.18)*5.5, qx=50+Math.sin(r-0.18)*5.5, qy=29-Math.cos(r-0.18)*5.5;
+        return '<path d="M'+qx.toFixed(1)+','+qy.toFixed(1)+' L'+x.toFixed(1)+','+y.toFixed(1)+' L'+px.toFixed(1)+','+py.toFixed(1)+' Z"/>';
+      }).join('')+'</g><circle cx="50" cy="29" r="3.6" fill="'+gd+'" stroke="'+dk+'" stroke-width="0.6"/>';
+    case 'horns':
+      return '<path d="M42.5,35 C30,27 26,13 33,2.5 C32.5,14 37,24 46,32 Z" fill="#7a6234" stroke="#4e3d1c" stroke-width="0.7"/>'
+        +'<path d="M57.5,35 C70,27 74,13 67,2.5 C67.5,14 63,24 54,32 Z" fill="#7a6234" stroke="#4e3d1c" stroke-width="0.7"/>';
+    case 'antlers':
+      return '<g stroke="'+gd+'" stroke-width="2.8" fill="none" stroke-linecap="round"><path d="M43,34 C37,25 36.5,13 41,4"/><path d="M39.5,19 L31.5,12"/><path d="M57,34 C63,25 63.5,13 59,4"/><path d="M60.5,19 L68.5,12"/></g>';
+    case 'antlersBig':
+      return '<g stroke="#2b241c" stroke-width="3.4" fill="none" stroke-linecap="round"><path d="M41.5,35 C32,22 32.5,10 38,1"/><path d="M37,20 L27.5,13"/><path d="M38.5,9 L31,3.5"/><path d="M58.5,35 C68,22 67.5,10 62,1"/><path d="M63,20 L72.5,13"/><path d="M61.5,9 L69,3.5"/></g>'
+        +'<g stroke="#ffffff18" stroke-width="0.9" fill="none"><path d="M41.5,35 C32,22 32.5,10 38,1"/><path d="M58.5,35 C68,22 67.5,10 62,1"/></g>';
+    case 'ai':
+      return '<circle cx="50" cy="16.5" r="9.6" fill="'+gd+'" stroke="'+dk+'" stroke-width="0.9"/><text x="50" y="21" text-anchor="middle" font-size="12.5" font-weight="bold" fill="#23232e" font-family="serif">愛</text>';
+    case 'fern':
+      return '<g stroke="'+gd+'" stroke-width="2.5" fill="none" stroke-linecap="round"><path d="M50,33 C42,22 35,18 31,21 C29.5,23 31,25.5 33.5,25"/><path d="M50,33 C50,18 50,11 50,6.5"/><path d="M50,33 C58,22 65,18 69,21 C70.5,23 69,25.5 66.5,25"/></g>';
+    case 'cross':
+      return '<circle cx="50" cy="17.5" r="9" fill="none" stroke="'+gd+'" stroke-width="2.2"/><path d="M50,9.5 V25.5 M42,17.5 H58" stroke="'+gd+'" stroke-width="2.4"/>';
     case 'kuwagata': default:
-      return '<path d="M44,32 Q35,18 40,6 M56,32 Q65,18 60,6" stroke="'+gold+'" stroke-width="3" fill="none"/><circle cx="50" cy="29" r="3.2" fill="'+gold+'"/>';
+      return '<path d="M45.2,35.5 C38.5,27 37.5,14.5 42.8,3.5 L45.8,4.8 C41.6,14.8 43,25.5 49,34 Z" fill="'+gd+'" stroke="'+dk+'" stroke-width="0.6"/>'
+        +'<path d="M54.8,35.5 C61.5,27 62.5,14.5 57.2,3.5 L54.2,4.8 C58.4,14.8 57,25.5 51,34 Z" fill="'+gd+'" stroke="'+dk+'" stroke-width="0.6"/>'
+        +'<rect x="46" y="29.5" width="8" height="6.6" rx="1.4" fill="'+gd+'" stroke="'+dk+'" stroke-width="0.6"/>';
   }
 }
 function lordBio(name){
@@ -1702,6 +1873,7 @@ function simBattle(lord, n){ return simBattle2(lord, 'yari', 1, n); }
 
 // ---------- 起動 ----------
 function init(){
+  if(!document.getElementById('map')) return; // 似顔絵テスト等、ゲームUIの無いページでは何もしない
   const had=load();
   buildMap();
   setupTabs();
