@@ -1,0 +1,337 @@
+/* ===== 城あつめ 〜戦国武将収集絵巻〜 ===== */
+:root{
+  --bg:#101622;
+  --panel:#1a2233;
+  --panel2:#141b2a;
+  --border:#2c3a52;
+  --gold:#d8b25c;
+  --gold-dim:#a8893f;
+  --text:#e8e2d0;
+  --muted:#9aa3b2;
+  --red:#c8484f;
+  --green:#6fae6f;
+  --blue:#5da3c9;
+  --purple:#b48ade;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:"Yu Mincho","YuMincho","Hiragino Mincho ProN","BIZ UDMincho",serif;
+  display:flex;flex-direction:column;
+  overflow:hidden;
+}
+
+/* ヘッダー */
+#topbar{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 14px;
+  background:linear-gradient(180deg,#1c2435,#161d2c);
+  border-bottom:2px solid var(--gold-dim);
+  flex-wrap:wrap;gap:4px;
+}
+#topbar h1{
+  font-size:20px;letter-spacing:3px;color:var(--gold);
+  text-shadow:0 1px 3px #000;
+  white-space:nowrap;
+}
+#topbar h1 .sub{font-size:12px;color:var(--muted);letter-spacing:1px;margin-left:6px;}
+#hud{display:flex;gap:14px;font-size:13px;color:var(--muted);align-items:center;flex-wrap:wrap;}
+#hud b{color:var(--text);font-size:15px;}
+
+/* タブ */
+#tabs{display:flex;background:var(--panel2);border-bottom:1px solid var(--border);}
+#tabs button{
+  flex:1;padding:9px 4px;background:none;border:none;color:var(--muted);
+  font-family:inherit;font-size:14px;letter-spacing:2px;cursor:pointer;
+  border-bottom:3px solid transparent;
+}
+#tabs button.active{color:var(--gold);border-bottom-color:var(--gold);}
+#tabs button:hover{color:var(--text);}
+
+main{flex:1;min-height:0;position:relative;}
+.tab{display:none;height:100%;overflow:auto;}
+.tab.active{display:block;}
+#tab-map{overflow:hidden;}
+
+/* マップ */
+#mapwrap{position:relative;width:100%;height:100%;}
+#map{width:100%;height:100%;display:block;cursor:grab;}
+#map:active{cursor:grabbing;}
+.sea{fill:#0c1320;}
+.land{fill:#243246;stroke:#3b5070;stroke-width:1.2;stroke-linejoin:round;}
+.inset-box{fill:none;stroke:#3b5070;stroke-dasharray:4 3;stroke-width:1;}
+.inset-label{fill:#5a6c87;font-size:9px;letter-spacing:1px;}
+.region-label{fill:rgba(255,255,255,0.07);font-size:26px;letter-spacing:6px;text-anchor:middle;pointer-events:none;}
+.road{stroke:rgba(216,178,92,0.18);stroke-width:1.4;}
+.road.sea-route{stroke-dasharray:5 4;stroke:rgba(120,160,200,0.3);}
+.route{fill:none;stroke:var(--gold);stroke-width:2.5;stroke-dasharray:6 5;opacity:.85;animation:march 1s linear infinite;}
+@keyframes march{to{stroke-dashoffset:-11;}}
+.hidden{display:none !important;}
+
+/* ノード */
+.node{cursor:pointer;}
+.node .node-ring{fill:#222d44;stroke:#56688a;stroke-width:1.6;transition:all .2s;}
+.node.facility .node-ring{fill:#1d2738;stroke:#465a78;}
+.node .node-icon{font-size:11px;text-anchor:middle;pointer-events:none;}
+.node.facility .node-icon{font-size:9px;fill:#cdb97e;}
+.node .node-label{
+  font-size:9px;fill:#dfe6f2;text-anchor:middle;pointer-events:none;
+  paint-order:stroke;stroke:#0c1320;stroke-width:3;display:none;
+}
+#map.show-labels .node-label{display:block;}
+.node.selected .node-label{display:block;font-size:10px;fill:#fff;}
+.node .node-badge{font-size:10px;fill:var(--gold);pointer-events:none;font-weight:bold;}
+.node.available .node-ring{stroke:var(--gold);}
+.node.castle.available .node-ring{fill:#2c3550;}
+.node.mastered .node-ring{fill:#4d3f1e;stroke:var(--gold);}
+.node.rare-ready .node-ring{stroke:#ff6b6b;stroke-width:2.4;animation:pulse 1.2s ease-in-out infinite;}
+.node.rare-ready .node-badge{fill:#ff6b6b;}
+.node.selected .node-ring{stroke:#fff;stroke-width:2.4;}
+.node.here .node-ring{filter:drop-shadow(0 0 4px rgba(216,178,92,.9));}
+@keyframes pulse{50%{stroke-width:4;}}
+
+#player-marker{pointer-events:none;}
+.player-ring{fill:#7e2f35;stroke:var(--gold);stroke-width:1.6;}
+.player-text{fill:#ffe9b0;font-size:9px;text-anchor:middle;font-weight:bold;}
+
+#zoomctl{position:absolute;right:10px;top:10px;display:flex;flex-direction:column;gap:6px;}
+#zoomctl button{
+  width:34px;height:34px;border-radius:8px;border:1px solid var(--border);
+  background:var(--panel);color:var(--text);font-size:16px;cursor:pointer;
+}
+#zoomctl button:hover{border-color:var(--gold);}
+
+/* ノードパネル */
+#nodepanel{
+  position:absolute;left:10px;right:10px;bottom:10px;
+  max-width:520px;margin:0 auto;max-height:46%;overflow:auto;
+  background:rgba(20,27,42,0.96);border:1px solid var(--gold-dim);border-radius:12px;
+  padding:12px 14px 14px;box-shadow:0 6px 24px rgba(0,0,0,.5);
+}
+.pn-head{display:flex;gap:10px;align-items:center;margin-bottom:8px;}
+.pn-icon{font-size:26px;}
+.pn-name{font-size:18px;color:var(--gold);letter-spacing:2px;}
+.pn-sub{font-size:12px;color:var(--muted);}
+.pn-lords{display:flex;flex-direction:column;gap:3px;margin-bottom:10px;}
+.pn-lord{display:flex;gap:8px;align-items:baseline;font-size:13px;padding:3px 6px;border-radius:6px;background:rgba(255,255,255,0.03);}
+.pn-lord .tier{font-size:11px;width:58px;flex-shrink:0;}
+.pn-lord .lname{flex:1;}
+.pn-lord .lpow{font-size:11px;color:var(--muted);}
+.pn-lord .lstat{font-size:11px;color:var(--muted);}
+.pn-lord.own .lstat{color:var(--green);}
+.pn-lord.ready .lstat{color:var(--gold);}
+.pn-lord.ready .lname{color:#fff;}
+.pn-lord.locked{opacity:.62;}
+.pn-hint{font-size:11.5px;color:#cfa86a;padding:2px 8px 6px;line-height:1.5;}
+.pn-hint .cond{color:var(--muted);}
+.pn-note{font-size:12.5px;color:var(--muted);padding:6px 2px;line-height:1.6;}
+.pn-close{
+  position:absolute;top:8px;right:10px;background:none;border:none;
+  color:var(--muted);font-size:15px;cursor:pointer;
+}
+.gold{color:var(--gold);}
+.blue{color:var(--blue);}
+
+/* ボタン */
+.btn{
+  display:inline-block;width:100%;margin-top:6px;padding:10px 12px;
+  background:#243049;border:1px solid var(--border);border-radius:9px;
+  color:var(--text);font-family:inherit;font-size:14.5px;letter-spacing:1px;cursor:pointer;
+  transition:all .15s;
+}
+.btn:hover{border-color:var(--gold);background:#2a3854;}
+.btn:disabled{opacity:.45;cursor:default;pointer-events:none;}
+.btn.primary{background:linear-gradient(180deg,#6e5524,#54401b);border-color:var(--gold-dim);color:#ffe9b0;}
+.btn.primary:hover{background:linear-gradient(180deg,#7d6129,#5f491f);}
+.btn.danger{border-color:#7e2f35;color:#e89a9a;}
+.btn.danger:hover{background:#3a2026;}
+
+/* トースト */
+#toasts{
+  position:fixed;top:64px;right:12px;z-index:60;
+  display:flex;flex-direction:column;gap:8px;max-width:330px;
+}
+.toast{
+  background:rgba(28,38,60,0.95);border-left:3px solid var(--gold);
+  padding:9px 13px;border-radius:8px;font-size:13px;line-height:1.5;
+  box-shadow:0 4px 14px rgba(0,0,0,.45);
+  animation:slidein .25s ease;
+}
+.toast.fade{opacity:0;transition:opacity .6s;}
+@keyframes slidein{from{transform:translateX(30px);opacity:0;}}
+
+/* モーダル */
+#overlay{
+  position:fixed;inset:0;background:rgba(5,8,14,0.75);z-index:50;
+  display:flex;align-items:center;justify-content:center;padding:14px;
+}
+#modal{
+  width:min(560px,94vw);max-height:88vh;overflow:auto;
+  background:linear-gradient(180deg,#1d2638,#151c2b);
+  border:1px solid var(--gold-dim);border-radius:14px;padding:18px;
+  box-shadow:0 10px 40px rgba(0,0,0,.6);
+}
+#modal h3{color:var(--gold);letter-spacing:2px;margin-bottom:10px;}
+#modal textarea{
+  width:100%;height:120px;background:#0e1420;color:var(--text);
+  border:1px solid var(--border);border-radius:8px;padding:8px;font-size:11px;margin:6px 0;
+}
+.help ol{padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:13.5px;line-height:1.7;}
+.help b{color:var(--gold);}
+
+/* 戦闘 */
+.battle{display:flex;flex-direction:column;gap:10px;}
+.b-enemy{
+  text-align:center;padding:12px;border-radius:10px;
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);
+}
+.b-enemy.tier-5{border-color:var(--gold);box-shadow:0 0 18px rgba(232,181,77,.25);background:linear-gradient(180deg,rgba(90,60,20,.3),rgba(40,30,15,.2));}
+.b-tier{font-size:12px;letter-spacing:3px;}
+.b-name{font-size:24px;letter-spacing:3px;margin:2px 0;text-shadow:0 2px 6px #000;}
+.b-enemy.tier-5 .b-name{color:#ffe9b0;font-size:27px;}
+.b-stats{font-size:12px;color:var(--muted);margin-bottom:8px;}
+.hpbar{
+  position:relative;height:18px;background:#0d1320;border-radius:9px;overflow:hidden;
+  border:1px solid var(--border);
+}
+.hpbar .hpfill{height:100%;background:linear-gradient(90deg,#a83a42,#d86a5a);transition:width .35s;}
+.hpbar.player .hpfill{background:linear-gradient(90deg,#3f7747,#6fae6f);}
+.hpbar span{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:11px;color:#fff;text-shadow:0 1px 2px #000;
+}
+.b-log{
+  min-height:84px;max-height:120px;overflow:auto;background:#0d1320;border-radius:8px;
+  padding:8px 10px;font-size:12.5px;line-height:1.7;color:var(--muted);
+  display:flex;flex-direction:column;
+}
+.b-log .new{color:var(--text);}
+.b-pname{font-size:12.5px;color:var(--muted);margin-bottom:5px;}
+.b-party{margin-left:8px;font-size:11px;}
+.b-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.b-actions .btn{margin:0;}
+.b-result{text-align:center;font-size:16px;padding:8px;letter-spacing:1px;}
+.b-result.win{color:var(--gold);}
+.b-result.lose{color:var(--muted);}
+
+/* 名鑑 */
+.zukan{padding:14px;max-width:860px;margin:0 auto;}
+.z-summary{
+  background:var(--panel);border:1px solid var(--border);border-radius:10px;
+  padding:10px 14px;font-size:13.5px;margin-bottom:14px;
+}
+.zukan h3{color:var(--gold);letter-spacing:3px;margin:18px 0 8px;border-bottom:1px solid var(--border);padding-bottom:4px;}
+.z-castle{margin-bottom:10px;}
+.z-cname{font-size:14px;margin-bottom:4px;}
+.z-pref{font-size:11px;color:var(--muted);}
+.z-lords{display:flex;flex-wrap:wrap;gap:6px;}
+.z-chip{
+  font-size:12px;padding:4px 9px;border-radius:7px;
+  background:#161d2c;border:1px solid var(--border);color:var(--muted);
+  display:inline-flex;gap:6px;align-items:baseline;
+}
+.z-chip small{font-size:10px;opacity:.8;}
+.z-chip.own{color:var(--text);background:#1d2740;}
+.z-chip b{font-size:10px;font-weight:normal;}
+
+/* 我が身・設定 */
+.self,.opt{padding:16px;max-width:640px;margin:0 auto;}
+.self h3,.opt h3{color:var(--gold);letter-spacing:3px;margin:16px 0 10px;}
+.self h3:first-child{margin-top:0;}
+.srow{
+  display:grid;grid-template-columns:44px 36px 1fr;gap:8px;align-items:center;
+  margin-bottom:8px;font-size:14px;
+}
+.srow small{grid-column:3;font-size:11px;color:var(--muted);margin-top:-4px;}
+.srow b{text-align:right;color:var(--gold);}
+.sbar{height:8px;background:#0d1320;border-radius:4px;overflow:hidden;border:1px solid var(--border);}
+.sbar div{height:100%;background:linear-gradient(90deg,var(--gold-dim),var(--gold));}
+.s-pow{
+  margin:12px 0;padding:10px;border:1px solid var(--gold-dim);border-radius:9px;
+  text-align:center;font-size:14px;background:rgba(216,178,92,.06);
+}
+.s-pow b{color:var(--gold);font-size:18px;}
+.s-records{display:flex;flex-wrap:wrap;gap:10px;font-size:13px;color:var(--muted);}
+.s-records b{color:var(--text);}
+.s-note{font-size:12px;color:var(--muted);line-height:1.6;margin-bottom:8px;}
+.s-import{display:flex;gap:8px;}
+.s-import input{
+  flex:1;background:#0e1420;border:1px solid var(--border);border-radius:8px;
+  color:var(--text);padding:9px 10px;font-size:14px;font-family:inherit;
+}
+.s-import .btn{width:auto;margin:0;padding:9px 16px;}
+.s-log{font-size:12px;color:var(--muted);line-height:1.9;}
+.opt .btn{margin-bottom:8px;}
+
+/* ===== v2: モードバー（現地/旅） ===== */
+#modebar{
+  position:absolute;left:10px;top:10px;display:flex;gap:8px;align-items:center;
+  flex-wrap:wrap;max-width:70%;
+}
+#mode-btn{
+  padding:7px 12px;border-radius:18px;border:1px solid var(--gold-dim);
+  background:rgba(26,34,51,0.92);color:var(--gold);font-family:inherit;
+  font-size:12.5px;cursor:pointer;letter-spacing:1px;
+}
+#mode-btn:hover{background:#243049;}
+#mode-status{
+  padding:6px 11px;border-radius:16px;background:rgba(13,19,32,0.85);
+  border:1px solid var(--border);font-size:11.5px;color:var(--muted);
+}
+
+/* ===== v2: 出陣画面（ランク選択） ===== */
+.prep h3{margin-bottom:12px;}
+.prep-enemy{
+  text-align:center;padding:12px;border-radius:10px;margin-bottom:12px;
+  background:rgba(255,255,255,0.03);border:1px solid var(--border);
+}
+.prep-enemy.tier-5{border-color:var(--gold);box-shadow:0 0 18px rgba(232,181,77,.2);}
+.prep-name{font-size:22px;letter-spacing:3px;margin:3px 0;text-shadow:0 2px 6px #000;}
+.prep-unit{font-size:13px;color:var(--text);}
+.prep-unit .muted{color:var(--muted);font-size:11.5px;}
+.prep-cur{font-size:12px;color:var(--gold);margin-top:4px;}
+.prep-ranks{display:flex;flex-direction:column;gap:8px;margin-bottom:6px;}
+.rank-btn{
+  display:flex;flex-direction:column;gap:3px;text-align:left;align-items:flex-start;
+  padding:10px 14px;margin:0;
+}
+.rank-btn .rk-head{font-size:14.5px;letter-spacing:1px;color:var(--text);}
+.rank-btn .rk-sub{font-size:11.5px;color:var(--muted);}
+.rank-btn.rank-2:not([disabled]) .rk-head{color:#cfe3f5;}
+.rank-btn.rank-3:not([disabled]){border-color:var(--gold-dim);background:linear-gradient(180deg,#3a3021,#2a2517);}
+.rank-btn.rank-3:not([disabled]) .rk-head{color:var(--gold);}
+
+/* ===== v2: 部隊バトル表示 ===== */
+.b-rankband{
+  font-size:11px;letter-spacing:2px;color:var(--muted);
+  border-bottom:1px dashed var(--border);padding-bottom:5px;margin-bottom:6px;
+}
+.b-rankband.rk2{color:#9fc6e8;}
+.b-rankband.rk3{color:var(--gold);text-shadow:0 0 8px rgba(232,181,77,.5);}
+.b-units{font-size:17px;letter-spacing:4px;margin-bottom:2px;}
+.b-enemy.rank-3{box-shadow:0 0 22px rgba(232,181,77,.18);}
+.b-actions{grid-template-columns:1fr 1fr;}
+.b-actions #b-run{grid-column:1 / 3;padding:7px;font-size:13px;color:var(--muted);}
+.btn.def{border-color:#4a6a8a;}
+
+/* ===== v2: 練度・レベル ===== */
+.train{color:var(--gold);}
+.pn-lord .uicon{font-size:12px;width:18px;flex-shrink:0;text-align:center;}
+.z-chip.best{box-shadow:0 0 8px rgba(232,181,77,.35);}
+.s-lv{
+  margin-bottom:14px;padding:10px 12px;border:1px solid var(--gold-dim);
+  border-radius:9px;background:rgba(216,178,92,.05);font-size:15px;
+}
+.s-lv b{color:var(--gold);font-size:19px;}
+.s-lv .muted{font-size:11.5px;color:var(--muted);margin-left:8px;}
+.s-lv .sbar{margin-top:7px;}
+.s-lv-note{font-size:11px;color:var(--muted);margin-top:5px;}
+
+@media (max-width:600px){
+  #topbar h1{font-size:16px;}
+  #hud{font-size:11px;gap:8px;}
+  .region-label{font-size:20px;}
+  #modebar{max-width:60%;}
+}
