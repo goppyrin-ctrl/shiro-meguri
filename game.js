@@ -1131,6 +1131,35 @@ function crestSVG(kind, uid){
 function lordBio(name){
   return (typeof LORD_BIO!=='undefined' && LORD_BIO[name]) || '戦国の世を生きた武士。詳しい記録は多く残っていない。';
 }
+// ---------- 似顔絵の画像差し替えレイヤー ----------
+// portraits/<武将名>.webp / .png / .jpg があればそれを表示、無ければ生成SVGのまま
+const PORT_EXTS=['webp','png','jpg'];
+const portImgCache={}; // 武将名 -> 見つかった拡張子 / null(全滅)
+function portraitHTML(lord, castle, size){
+  size=size||96;
+  const svg=portraitSVG(lord,castle,size);
+  const wrap='<span class="pwrap" style="width:'+size+'px;height:'+Math.round(size*1.2)+'px">';
+  const known=portImgCache[lord.n];
+  if(known===null) return wrap+svg+'</span>';
+  const start=known?PORT_EXTS.indexOf(known):0;
+  const tierC=TIER[lord.t||1].color;
+  return wrap+svg
+    +'<img class="pimg'+(known?' show':'')+'" alt="" style="border-color:'+tierC+'" data-n="'+lord.n+'" data-i="'+start+'"'
+    +' src="portraits/'+encodeURIComponent(lord.n)+'.'+PORT_EXTS[start]+'"'
+    +' onload="window.__pOk(this)" onerror="window.__pErr(this)">'
+    +'</span>';
+}
+window.__pOk=function(img){
+  portImgCache[img.getAttribute('data-n')]=PORT_EXTS[+img.getAttribute('data-i')];
+  img.classList.add('show');
+};
+window.__pErr=function(img){
+  const n=img.getAttribute('data-n');
+  let i=+img.getAttribute('data-i')+1;
+  if(i>=PORT_EXTS.length){ portImgCache[n]=null; img.remove(); return; }
+  img.setAttribute('data-i',i);
+  img.src='portraits/'+encodeURIComponent(n)+'.'+PORT_EXTS[i];
+};
 
 // ---------- 出陣画面（ランク選択） ----------
 function openPrep(castle){
@@ -1141,7 +1170,7 @@ function openPrep(castle){
   const lv=playerLevel();
   let html='<div class="prep"><h3>出陣 — '+castle.name+'</h3>';
   html+='<div class="prep-enemy tier-'+l.t+'">'
-    +'<div class="prep-port">'+portraitSVG(l, castle, 68)+'</div>'
+    +'<div class="prep-port">'+portraitHTML(l, castle, 68)+'</div>'
     +'<div class="prep-info">'
     +'<div class="b-tier" style="color:'+TIER[l.t].color+'">'+TIER[l.t].label+(ch.retrain?'（鍛え直し）':'')+'</div>'
     +'<div class="prep-name">'+l.n+'</div>'
@@ -1316,7 +1345,7 @@ function buildBattleShell(){
     +'<div class="bs-ground"></div>'
     +'<div class="bs-army player" id="bs-player">'+pUnits+'</div>'
     +'<div class="bs-army enemy" id="bs-enemy">'+units+'</div>'
-    +'<div class="bs-general" id="bs-general">'+portraitSVG(l,b.castle,50)+'</div>'
+    +'<div class="bs-general" id="bs-general">'+portraitHTML(l,b.castle,50)+'</div>'
     +'<div id="bs-fx"></div>'
     +'</div>';
   html+='<div class="b-bars">'
@@ -1367,7 +1396,7 @@ function showBattleResult(){
     if(gp) gp.classList.add('beaten');
     const tr=RANKS[b.rank-1].train;
     bottom.innerHTML='<div class="b-result win">🎉 勝利！</div>'
-      +'<div class="b-recruit">'+portraitSVG(b.lord,b.castle,84)
+      +'<div class="b-recruit">'+portraitHTML(b.lord,b.castle,84)
       +'<div class="b-recruit-info">'
       +'<div class="b-recruit-name"><span style="color:'+TIER[b.lord.t].color+'">'+TIER[b.lord.t].label+'</span>　'+b.lord.n+(tr?'<span class="train">　'+TRAIN_MARK[tr]+TRAIN_NAME[tr]+'</span>':'')+'</div>'
       +'<div class="b-recruit-msg">'+(b.retrain?'部隊が鍛え直された！':'が仲間になった！')+'</div>'
@@ -1650,7 +1679,7 @@ function renderZukan(){
         if(own){
           const tr=trainOf(lordKey(c.id,i));
           html+='<span class="z-chip own'+(tr===2?' best':'')+'" data-k="'+c.id+'|'+i+'" style="border-color:'+TIER[l.t].color+'" title="クリックで詳細">'
-            +'<span class="z-thumb">'+portraitSVG(l,c,26)+'</span>'
+            +'<span class="z-thumb">'+portraitHTML(l,c,26)+'</span>'
             +'<span class="z-cinfo"><b style="color:'+TIER[l.t].color+'">'+TIER[l.t].label+'</b> '+(tr?'<span class="train">'+TRAIN_MARK[tr]+'</span>':'')+l.n+' '+uicon+'<small>武'+(l.b+TRAIN_BONUS[tr])+' 知'+(l.i+TRAIN_BONUS[tr])+' 統'+(l.l+TRAIN_BONUS[tr])+'</small></span></span>';
         }else{
           const unlocked=allyCount()>=TIER[l.t].req;
@@ -1675,7 +1704,7 @@ function openLordModal(key){
   const u=UNITS[unitOf(r.castle,r.lord)];
   const bn=TRAIN_BONUS[tr];
   showModal('<div class="lord-modal">'
-    +'<div class="lm-port">'+portraitSVG(r.lord,r.castle,116)+'</div>'
+    +'<div class="lm-port">'+portraitHTML(r.lord,r.castle,116)+'</div>'
     +'<div class="lm-info">'
     +'<div class="lm-name"><span style="color:'+TIER[r.lord.t].color+'">'+TIER[r.lord.t].label+'</span>　'+r.lord.n+(tr?'<span class="train">　'+TRAIN_MARK[tr]+TRAIN_NAME[tr]+'</span>':'')+'</div>'
     +'<div class="lm-sub">'+r.castle.name+'（'+r.castle.pref+'）　'+u.icon+' '+u.name+'</div>'
@@ -1897,7 +1926,7 @@ window.GAME={
   set state(s){state=s;},
   save, addSteps, simBattle, simBattle2, refreshAll, setMode,
   lordByKey, challengerFor, openPrep, playerPow, playerMaxHP, enemyPow, playerLevel, unitOf,
-  portraitSVG, openLordModal, startBattle, hideOverlay,
+  portraitSVG, portraitHTML, openLordModal, startBattle, hideOverlay,
   // GPSテスト用: debugGpsOn()→debugFix(lat,lon[,tsOffsetSec])で擬似測位
   debugGpsOn(){ state.mode='gps'; geoStatus='ok'; updateModeUI(); },
   debugGpsOff(){ state.mode='virtual'; save(); stopGeo(); updateModeUI(); movePlayerMarker(); updateNodeStates(); renderPanel(); },
